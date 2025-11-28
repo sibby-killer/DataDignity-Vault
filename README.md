@@ -122,19 +122,34 @@ VITE_CONTRACT_ADDRESS=0x... (after deployment)
 
 If you get "Could not fetch chain ID" error when adding Polygon Mumbai network:
 
-**✅ Correct Configuration:**
+**✅ Recommended RPC URLs** (from [ChainList](https://chainlist.org)):
+
+**Option 1 (Recommended):**
 - Network Name: `Polygon Mumbai`
-- RPC URL: `https://rpc-mumbai.maticvigil.com` ⚠️ **Must include `https://`**
+- RPC URL: `https://polygon-mumbai.gateway.tenderly.co`
 - Chain ID: `80001`
 - Currency Symbol: `MATIC`
 - Block Explorer: `https://mumbai.polygonscan.com`
 
+**Option 2 (Alchemy Demo):**
+- RPC URL: `https://polygon-mumbai.g.alchemy.com/v2/demo`
+
+**Option 3 (PublicNode):**
+- RPC URL: `https://polygon-mumbai-bor-rpc.publicnode.com`
+
+**Option 4 (Original):**
+- RPC URL: `https://rpc-mumbai.maticvigil.com`
+
+> **Tip**: If one RPC doesn't work, try another from the list above. Visit [ChainList](https://chainlist.org/?search=mumbai) for the latest working RPCs.
+
 **❌ Common Mistake:**
 - RPC URL: `rpc-mumbai.maticvigil.com` (missing `https://`)
 
-**Alternative RPC URLs** (if one doesn't work):
-- `https://rpc-mumbai.matic.today`
-- `https://matic-mumbai.chainstacklabs.com`
+**Quick Add via ChainList:**
+1. Visit https://chainlist.org
+2. Search for "mumbai"
+3. Click "Connect Wallet" next to Mumbai
+4. Approve in MetaMask - network added automatically!
 
 ### 7. Run the App
 
