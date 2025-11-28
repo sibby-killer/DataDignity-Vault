@@ -62,17 +62,39 @@ export async function getUserFiles(userId) {
  * @returns {Promise<Array>}
  */
 export async function getSharedFiles(userId) {
+    // First get the user's email since recipient_id stores email, not UUID
+    const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+
+    if (userError) {
+        console.error('Error fetching user email:', userError);
+        return [];
+    }
+
+    if (!userData?.email) {
+        console.warn('No email found for user:', userId);
+        return [];
+    }
+
+    // Now query permissions using the email
     const { data, error } = await supabase
         .from('permissions')
         .select(`
       *,
       file:files(*)
     `)
-        .eq('recipient_id', userId)
+        .eq('recipient_id', userData.email)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+        console.error('Error fetching shared files:', error);
+        return [];
+    }
+
     return data || [];
 }
 
