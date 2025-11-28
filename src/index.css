@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-neutral-200;
+  }
+  
+  body {
+    @apply bg-white text-neutral-900 font-sans antialiased;
+    font-size: 16px;
+  }
+
+  h1 {
+    @apply text-h1;
+  }
+
+  h2 {
+    @apply text-h2;
+  }
+
+  h3 {
+    @apply text-h3;
+  }
+
+  p {
+    @apply text-body;
+  }
+}
+
+@layer components {
+  /* Button base styles */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-hover shadow-sm hover:shadow-md;
+  }
+
+  .btn-secondary {
+    @apply bg-neutral-100 text-neutral-900 hover:bg-neutral-200;
+  }
+
+  .btn-destructive {
+    @apply bg-destructive text-white hover:bg-destructive-hover shadow-sm;
+  }
+
+  .btn-lockdown {
+    @apply bg-gradient-to-r from-destructive to-destructive-hover text-white font-semibold shadow-lg hover:shadow-xl transform hover:scale-105;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white border border-neutral-200 rounded-xl shadow-card hover:shadow-card-hover transition-shadow duration-200 p-4;
+  }
+
+  /* Input styles */
+  .input {
+    @apply w-full px-3 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all;
+  }
+
+  /* Modal backdrop */
+  .modal-backdrop {
+    @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fade-in;
+  }
+
+  /* Modal content */
+  .modal-content {
+    @apply bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6 animate-slide-in;
+  }
+
+  /* Toast notification */
+  .toast {
+    @apply fixed top-4 right-4 bg-white border border-neutral-200 rounded-lg shadow-xl p-4 max-w-sm z-50 animate-slide-in;
+  }
+
+  .toast-success {
+    @apply border-l-4 border-l-green-500;
+  }
+
+  .toast-error {
+    @apply border-l-4 border-l-destructive;
+  }
+
+  /* Activity log entry */
+  .log-entry {
+    @apply border-l-2 border-neutral-200 pl-4 py-2 hover:border-primary transition-colors cursor-pointer;
+  }
+
+  /* File type icons */
+  .file-icon {
+    @apply w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold;
+  }
+
+  .file-icon-pdf {
+    @apply bg-red-500;
+  }
+
+  .file-icon-doc {
+    @apply bg-blue-500;
+  }
+
+  .file-icon-img {
+    @apply bg-purple-500;
+  }
+
+  .file-icon-default {
+    @apply bg-neutral-400;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
