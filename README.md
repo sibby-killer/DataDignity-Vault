@@ -4,6 +4,8 @@ A secure, privacy-focused file storage platform built entirely with **free tools
 
 > **Built for the PLP Hackathon - GBV Data Protection Challenge**
 
+🚀 **[Live App](https://secure-vault-rouge.vercel.app/)** | 📦 **[GitHub Repo](https://github.com/sibby-killer/DataDignity-Vault)**
+
 ---
 
 ## 👥 Team Members & Contributors
