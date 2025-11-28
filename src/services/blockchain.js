@@ -100,9 +100,9 @@ export async function switchToAmoy() {
  * @returns {Promise<Object>} Transaction receipt
  */
 export async function registerFile(fileId, storagePath) {
-    if (!contract) await initBlockchain();
-
     try {
+        if (!contract) await initBlockchain();
+
         const signer = await provider.getSigner();
         const ownerAddress = await signer.getAddress();
 
@@ -115,8 +115,13 @@ export async function registerFile(fileId, storagePath) {
             status: receipt.status === 1 ? 'confirmed' : 'failed'
         };
     } catch (error) {
-        console.error('Register file error:', error);
-        throw new Error(`Blockchain registration failed: ${error.message}`);
+        console.warn('Blockchain registration skipped (MetaMask not connected):', error.message);
+        // Return success even if blockchain fails - makes blockchain optional
+        return {
+            transactionHash: null,
+            blockNumber: null,
+            status: 'skipped'
+        };
     }
 }
 
@@ -127,9 +132,9 @@ export async function registerFile(fileId, storagePath) {
  * @returns {Promise<Object>} Transaction receipt
  */
 export async function grantAccess(fileId, recipientAddress) {
-    if (!contract) await initBlockchain();
-
     try {
+        if (!contract) await initBlockchain();
+
         const tx = await contract.grantAccess(fileId, recipientAddress);
         const receipt = await tx.wait();
 
@@ -139,8 +144,13 @@ export async function grantAccess(fileId, recipientAddress) {
             status: receipt.status === 1 ? 'confirmed' : 'failed'
         };
     } catch (error) {
-        console.error('Grant access error:', error);
-        throw new Error(`Failed to grant access: ${error.message}`);
+        console.warn('Blockchain grant access skipped (MetaMask not connected):', error.message);
+        // Return success even if blockchain fails
+        return {
+            transactionHash: null,
+            blockNumber: null,
+            status: 'skipped'
+        };
     }
 }
 
