@@ -9,8 +9,10 @@ import { useToast } from '../context/ToastContext';
 import FileCard from '../components/FileCard';
 import UploadModal from '../components/modals/UploadModal';
 import ShareModal from '../components/modals/ShareModal';
-import { Folder, TrendingUp } from 'lucide-react';
+import { Folder, TrendingUp, ShieldAlert } from 'lucide-react';
 import { downloadAndDecryptFile, deleteFileCompletely, promptForPassword } from '../services/fileOperations';
+import { revokeAllPermissions } from '../services/supabase';
+import { createActivityLog } from '../services/supabase';
 
 export default function Dashboard() {
     const { files, loading, refreshFiles } = useFiles();
@@ -19,6 +21,8 @@ export default function Dashboard() {
     const [uploadModalOpen, setUploadModalOpen] = useState(false);
     const [shareModalOpen, setShareModalOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
+    const [lockdownModalOpen, setLockdownModalOpen] = useState(false);
+    const [lockdownLoading, setLockdownLoading] = useState(false);
 
     const recentFiles = files.slice(0, 6);
 
@@ -55,6 +59,33 @@ export default function Dashboard() {
         }
     };
 
+    const handleEmergencyLockdown = async () => {
+        setLockdownLoading(true);
+        try {
+            // Revoke all permissions in database
+            const revokedCount = await revokeAllPermissions(user.id);
+
+            // Log the lockdown action
+            await createActivityLog({
+                userId: user.id,
+                action: 'emergency_lockdown',
+                details: `Revoked access to ${revokedCount} files`
+            });
+
+            showToast(
+                `Emergency Lockdown Complete! ${revokedCount} permissions revoked.`,
+                'success'
+            );
+
+            setLockdownModalOpen(false);
+            await refreshFiles();
+        } catch (error) {
+            showToast(error.message || 'Lockdown failed', 'error');
+        } finally {
+            setLockdownLoading(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-full">
@@ -68,6 +99,29 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6">
+            {/* Emergency Lockdown Button */}
+            <div className="card bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                            <ShieldAlert className="w-6 h-6 text-red-600" />
+                        </div>
+                        <div>
+                            <h3 className="text-h3 font-semibold text-neutral-900">Emergency Lockdown</h3>
+                            <p className="text-caption text-neutral-600">
+                                Instantly revoke all access to your files. Use if you feel unsafe.
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setLockdownModalOpen(true)}
+                        className="btn bg-red-600 hover:bg-red-700 text-white px-6 py-3 font-semibold"
+                    >
+                        Activate Lockdown
+                    </button>
+                </div>
+            </div>
+
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="card">
@@ -147,6 +201,56 @@ export default function Dashboard() {
                 onClose={() => setShareModalOpen(false)}
                 file={selectedFile}
             />
+
+            {/* Emergency Lockdown Modal */}
+            {lockdownModalOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                                <ShieldAlert className="w-6 h-6 text-red-600" />
+                            </div>
+                            <h2 className="text-h2 font-semibold text-neutral-900">
+                                Emergency Lockdown
+                            </h2>
+                        </div>
+
+                        <div className="space-y-4 mb-6">
+                            <p className="text-neutral-700">
+                                This will <strong>immediately revoke all access</strong> to your files from everyone you've shared with.
+                            </p>
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <p className="text-sm text-red-800 font-medium">
+                                    ⚠️ Warning: This action cannot be undone
+                                </p>
+                                <p className="text-sm text-red-700 mt-1">
+                                    Use this if you feel unsafe or need to protect your data immediately.
+                                </p>
+                            </div>
+                            <p className="text-sm text-neutral-600">
+                                All permissions will be revoked and logged with a timestamp for your records.
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setLockdownModalOpen(false)}
+                                className="btn flex-1 bg-neutral-200 hover:bg-neutral-300 text-neutral-900"
+                                disabled={lockdownLoading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleEmergencyLockdown}
+                                className="btn flex-1 bg-red-600 hover:bg-red-700 text-white"
+                                disabled={lockdownLoading}
+                            >
+                                {lockdownLoading ? 'Activating...' : 'Activate Lockdown'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
