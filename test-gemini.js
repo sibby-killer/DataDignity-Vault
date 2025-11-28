@@ -1,8 +1,8 @@
 // Test Gemini API
-// Run this in browser console to test if API is working
+// Run this to test if API is working
 
 const GEMINI_API_KEY = 'AIzaSyBQWbaZJqtOElhQmiPEVuYzxrFUw79Bsxw';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 async function testGeminiAPI() {
     try {
