@@ -46,7 +46,7 @@ This project was collaboratively built by:
 
 - 🔒 **End-to-End Encryption** - AES-GCM 256-bit client-side encryption
 - 📦 **Secure Storage** - Files stored encrypted on Supabase Storage
-- ⛓️ **Blockchain Permissions** - Smart contract-based access control on Polygon Mumbai
+- ⛓️ **Blockchain Permissions** - Smart contract-based access control on Polygon Amoy Testnet
 - 🤖 **AI Breach Detection** - Gemini-powered breach scanning
 - 💬 **AI Help Assistant** - Interactive Gemini-powered help for new users
 - 📧 **Email-Based Sharing** - Automatic wallet generation for recipients
@@ -62,7 +62,7 @@ All services are **100% free**:
 - **Database**: Supabase (PostgreSQL)
 - **Storage**: Supabase Storage (1GB free)
 - **Authentication**: Supabase Auth
-- **Blockchain**: Polygon Mumbai Testnet
+- **Blockchain**: Polygon Amoy Testnet
 - **AI**: Google Gemini Pro API
 - **Encryption**: Web Crypto API (browser-native)
 
@@ -88,7 +88,7 @@ Follow the detailed setup guide: **[SETUP.md](./SETUP.md)**
 You'll need:
 - Supabase account (free)
 - Gemini API key (free)
-- MetaMask wallet with Mumbai testnet MATIC (free from faucet)
+- MetaMask wallet with Amoy testnet MATIC (free from faucet)
 
 ### 4. Configure Environment
 
@@ -98,7 +98,8 @@ Copy `.env.example` to `.env` and fill in your API keys:
 VITE_SUPABASE_URL=https://xxxxx.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key
 VITE_GEMINI_API_KEY=your_gemini_key
-VITE_MUMBAI_RPC_URL=https://rpc-mumbai.maticvigil.com
+VITE_AMOY_RPC_URL=https://rpc-amoy.polygon.technology/
+VITE_CHAIN_ID=80002
 VITE_CONTRACT_ADDRESS=0x... (after deployment)
 ```
 
@@ -115,41 +116,35 @@ VITE_CONTRACT_ADDRESS=0x... (after deployment)
 2. Create new file `SecureVault.sol`
 3. Copy contents from `contracts/SecureVault.sol`
 4. Compile with Solidity 0.8.0+
-5. Deploy to Mumbai using MetaMask
+5. Deploy to **Polygon Amoy Testnet** using MetaMask
 6. Copy contract address to `.env`
 
-#### Troubleshooting MetaMask Network Configuration
+#### Adding Polygon Amoy Testnet to MetaMask
 
-If you get "Could not fetch chain ID" error when adding Polygon Mumbai network:
+> **⚠️ IMPORTANT**: Mumbai testnet (Chain ID: 80001) was **deprecated in April 2024**. Use **Amoy testnet** instead!
 
-**✅ Recommended RPC URLs** (from [ChainList](https://chainlist.org)):
+**✅ Polygon Amoy Testnet Configuration:**
 
-**Option 1 (Recommended):**
-- Network Name: `Polygon Mumbai`
-- RPC URL: `https://polygon-mumbai.gateway.tenderly.co`
-- Chain ID: `80001`
-- Currency Symbol: `MATIC`
-- Block Explorer: `https://mumbai.polygonscan.com`
+```
+Network Name: Polygon Amoy Testnet
+RPC URL: https://rpc-amoy.polygon.technology/
+Chain ID: 80002
+Currency Symbol: MATIC
+Block Explorer: https://amoy.polygonscan.com/
+```
 
-**Option 2 (Alchemy Demo):**
-- RPC URL: `https://polygon-mumbai.g.alchemy.com/v2/demo`
-
-**Option 3 (PublicNode):**
-- RPC URL: `https://polygon-mumbai-bor-rpc.publicnode.com`
-
-**Option 4 (Original):**
-- RPC URL: `https://rpc-mumbai.maticvigil.com`
-
-> **Tip**: If one RPC doesn't work, try another from the list above. Visit [ChainList](https://chainlist.org/?search=mumbai) for the latest working RPCs.
-
-**❌ Common Mistake:**
-- RPC URL: `rpc-mumbai.maticvigil.com` (missing `https://`)
-
-**Quick Add via ChainList:**
+**Quick Add via ChainList (Recommended):**
 1. Visit https://chainlist.org
-2. Search for "mumbai"
-3. Click "Connect Wallet" next to Mumbai
-4. Approve in MetaMask - network added automatically!
+2. Enable "Testnets" toggle
+3. Search for "Amoy"
+4. Click "Connect Wallet" next to Polygon Amoy
+5. Approve in MetaMask - done! ✨
+
+**Get Test MATIC:**
+- Visit [Polygon Faucet](https://faucet.polygon.technology/)
+- Select "Polygon Amoy"
+- Enter your wallet address
+- Receive free test MATIC
 
 ### 7. Run the App
 
@@ -213,7 +208,7 @@ Open [http://localhost:3000](http://localhost:3000)
 |---------|-------|-------------|
 | Supabase | 500MB DB, 1GB storage | Database, Auth, Storage |
 | Gemini Pro | 1,500 requests/day | Breach scanning + Help |
-| Polygon Mumbai | Unlimited | Smart contracts (testnet) |
+| Polygon Amoy | Unlimited | Smart contracts (testnet) |
 
 **Total Cost: $0/month** ✅
 

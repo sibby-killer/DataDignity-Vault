@@ -22,7 +22,7 @@ export async function getHelp(userQuestion, currentPage = 'dashboard') {
 Key features of SecureVault:
 - Client-side AES-GCM 256-bit encryption (files encrypted in browser before upload)
 - Secure file storage with Supabase
-- Blockchain-based permissions on Polygon Mumbai
+- Blockchain-based permissions on Polygon Amoy Testnet
 - Email-based file sharing (automatic wallet generation)
 - Emergency lockdown feature (revokes all permissions instantly)
 - AI-powered breach detection

@@ -1,13 +1,13 @@
 /**
- * Blockchain integration using ethers.js for Polygon Mumbai
+ * Blockchain integration using ethers.js for Polygon Amoy Testnet
  * Handles smart contract interactions for file permissions
  */
 
 import { ethers } from 'ethers';
 
-const MUMBAI_RPC_URL = import.meta.env.VITE_MUMBAI_RPC_URL;
+const AMOY_RPC_URL = import.meta.env.VITE_AMOY_RPC_URL;
 const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS;
-const CHAIN_ID = parseInt(import.meta.env.VITE_CHAIN_ID || '80001');
+const CHAIN_ID = parseInt(import.meta.env.VITE_CHAIN_ID || '80002');
 
 // Smart contract ABI (will be updated after contract deployment)
 const CONTRACT_ABI = [
@@ -42,11 +42,11 @@ export async function initBlockchain() {
             // Check if on correct network
             const network = await provider.getNetwork();
             if (Number(network.chainId) !== CHAIN_ID) {
-                await switchToMumbai();
+                await switchToAmoy();
             }
         } else {
             // Fallback to RPC provider (read-only)
-            provider = new ethers.JsonRpcProvider(MUMBAI_RPC_URL);
+            provider = new ethers.JsonRpcProvider(AMOY_RPC_URL);
         }
 
         // Initialize contract
@@ -61,10 +61,10 @@ export async function initBlockchain() {
 }
 
 /**
- * Switch to Mumbai network in MetaMask
+ * Switch to Amoy network in MetaMask
  * @returns {Promise<void>}
  */
-export async function switchToMumbai() {
+export async function switchToAmoy() {
     try {
         await window.ethereum.request({
             method: 'wallet_switchEthereumChain',
@@ -77,14 +77,14 @@ export async function switchToMumbai() {
                 method: 'wallet_addEthereumChain',
                 params: [{
                     chainId: `0x${CHAIN_ID.toString(16)}`,
-                    chainName: 'Polygon Mumbai Testnet',
+                    chainName: 'Polygon Amoy Testnet',
                     nativeCurrency: {
                         name: 'MATIC',
                         symbol: 'MATIC',
                         decimals: 18
                     },
-                    rpcUrls: [MUMBAI_RPC_URL],
-                    blockExplorerUrls: ['https://mumbai.polygonscan.com/']
+                    rpcUrls: [AMOY_RPC_URL],
+                    blockExplorerUrls: ['https://amoy.polygonscan.com/']
                 }],
             });
         } else {
