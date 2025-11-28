@@ -135,16 +135,64 @@ Block Explorer: https://amoy.polygonscan.com/
 
 **Quick Add via ChainList (Recommended):**
 1. Visit https://chainlist.org
-2. Enable "Testnets" toggle
+2. Enable "Testnets" toggle (top right corner)
 3. Search for "Amoy"
 4. Click "Connect Wallet" next to Polygon Amoy
 5. Approve in MetaMask - done! ✨
 
-**Get Test POL:**
-- Visit [Polygon Faucet](https://faucet.polygon.technology/)
-- Select "Polygon Amoy"
-- Enter your wallet address
-- Receive free test POL
+#### Getting Test POL from Faucet (Step-by-Step)
+
+After adding the Amoy network, you need test POL tokens for gas fees:
+
+**Step 1: Copy Your Wallet Address**
+1. Open MetaMask extension
+2. Make sure you're on "Polygon Amoy Testnet" network
+3. Click on your account name at the top
+4. Your address will be copied automatically
+   - Or click the copy icon next to your address
+   - Format: `0x1234...5678`
+
+**Step 2: Visit Polygon Faucet**
+1. Go to https://faucet.polygon.technology/
+2. You'll see the Polygon Faucet page
+
+**Step 3: Select Network**
+1. Look for the network dropdown
+2. Select **"Polygon Amoy"** (NOT Mumbai or other networks)
+3. Verify it shows "Polygon Amoy" in the dropdown
+
+**Step 4: Enter Wallet Address**
+1. Paste your wallet address in the input field
+2. Double-check the address is correct
+3. Make sure it starts with `0x`
+
+**Step 5: Complete Verification**
+1. Complete the CAPTCHA or verification challenge
+2. This prevents bot abuse of the faucet
+
+**Step 6: Request Tokens**
+1. Click "Submit" or "Request" button
+2. Wait for confirmation message
+3. You should see "Transaction successful!" or similar
+
+**Step 7: Verify Receipt**
+1. Open MetaMask
+2. Check your balance - you should see POL tokens (usually 0.5 - 1 POL)
+3. If not visible immediately, wait 30-60 seconds and refresh
+4. You can also check on https://amoy.polygonscan.com/ by searching your address
+
+**Troubleshooting:**
+- **"Address already used"**: Faucets have cooldown periods (usually 24 hours)
+- **No tokens received**: Check you selected "Polygon Amoy" not another network
+- **Transaction failed**: Try again after a few minutes
+- **Need more POL**: Wait for cooldown period or use alternative faucets:
+  - https://www.alchemy.com/faucets/polygon-amoy
+  - https://faucet.quicknode.com/polygon/amoy
+
+**How Much POL Do You Need?**
+- For testing: 0.5 POL is enough for ~100 transactions
+- For development: 1-2 POL should last weeks
+- Gas fees on Amoy are very cheap (fractions of a cent)
 
 ### 7. Run the App
 
