@@ -71,7 +71,18 @@ Be conservative - if uncertain, use "UNCERTAIN" status.`;
         }
 
         const data = await response.json();
-        const text = data.candidates[0]?.content?.parts[0]?.text;
+
+        // Safety check for response structure
+        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
+            console.warn('Unexpected Gemini API response structure:', data);
+            return {
+                status: 'UNKNOWN',
+                details: 'Unable to analyze - API response format changed',
+                confidence: 0
+            };
+        }
+
+        const text = data.candidates[0].content.parts[0].text;
 
         if (!text) {
             throw new Error('No response from Gemini API');
