@@ -88,7 +88,7 @@ Follow the detailed setup guide: **[SETUP.md](./SETUP.md)**
 You'll need:
 - Supabase account (free)
 - Gemini API key (free)
-- MetaMask wallet with Amoy testnet MATIC (free from faucet)
+- MetaMask wallet with Amoy testnet POL (free from faucet)
 
 ### 4. Configure Environment
 
@@ -129,7 +129,7 @@ VITE_CONTRACT_ADDRESS=0x... (after deployment)
 Network Name: Polygon Amoy Testnet
 RPC URL: https://rpc-amoy.polygon.technology/
 Chain ID: 80002
-Currency Symbol: MATIC
+Currency Symbol: POL
 Block Explorer: https://amoy.polygonscan.com/
 ```
 
@@ -140,11 +140,11 @@ Block Explorer: https://amoy.polygonscan.com/
 4. Click "Connect Wallet" next to Polygon Amoy
 5. Approve in MetaMask - done! ✨
 
-**Get Test MATIC:**
+**Get Test POL:**
 - Visit [Polygon Faucet](https://faucet.polygon.technology/)
 - Select "Polygon Amoy"
 - Enter your wallet address
-- Receive free test MATIC
+- Receive free test POL
 
 ### 7. Run the App
 

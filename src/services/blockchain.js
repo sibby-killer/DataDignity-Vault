@@ -79,8 +79,8 @@ export async function switchToAmoy() {
                     chainId: `0x${CHAIN_ID.toString(16)}`,
                     chainName: 'Polygon Amoy Testnet',
                     nativeCurrency: {
-                        name: 'MATIC',
-                        symbol: 'MATIC',
+                        name: 'POL',
+                        symbol: 'POL',
                         decimals: 18
                     },
                     rpcUrls: [AMOY_RPC_URL],
