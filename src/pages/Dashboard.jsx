@@ -11,8 +11,7 @@ import UploadModal from '../components/modals/UploadModal';
 import ShareModal from '../components/modals/ShareModal';
 import { Folder, TrendingUp, ShieldAlert } from 'lucide-react';
 import { downloadAndDecryptFile, deleteFileCompletely, promptForPassword } from '../services/fileOperations';
-import { revokeAllPermissions } from '../services/supabase';
-import { createActivityLog } from '../services/supabase';
+import { revokeAllPermissions, createActivityLog, supabase } from '../services/supabase';
 
 export default function Dashboard() {
     const { files, loading, refreshFiles } = useFiles();
@@ -59,6 +58,39 @@ export default function Dashboard() {
         }
     };
 
+    const handleRevoke = async (file) => {
+        if (!window.confirm(`Revoke all access to "${file.name}"? People you've shared with will no longer be able to view this file.`)) {
+            return;
+        }
+
+        try {
+            showToast('Revoking access...', 'info');
+
+            // Get all permissions for this file
+            const { data: permissions, error } = await supabase
+                .from('permissions')
+                .update({ status: 'revoked', revoked_at: new Date().toISOString() })
+                .eq('file_id', file.id)
+                .eq('status', 'active')
+                .select();
+
+            if (error) throw error;
+
+            // Log the action
+            await createActivityLog({
+                userId: user.id,
+                action: 'revoke_file_access',
+                fileId: file.id,
+                details: `Revoked ${permissions?.length || 0} permissions`
+            });
+
+            showToast(`Access revoked for ${permissions?.length || 0} people`, 'success');
+            await refreshFiles();
+        } catch (error) {
+            showToast(error.message || 'Revoke failed', 'error');
+        }
+    };
+
     const handleEmergencyLockdown = async () => {
         setLockdownLoading(true);
         try {
@@ -99,29 +131,6 @@ export default function Dashboard() {
 
     return (
         <div className="space-y-6">
-            {/* Emergency Lockdown Button */}
-            <div className="card bg-gradient-to-r from-red-50 to-orange-50 border-red-200">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                            <ShieldAlert className="w-6 h-6 text-red-600" />
-                        </div>
-                        <div>
-                            <h3 className="text-h3 font-semibold text-neutral-900">Emergency Lockdown</h3>
-                            <p className="text-caption text-neutral-600">
-                                Instantly revoke all access to your files. Use if you feel unsafe.
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => setLockdownModalOpen(true)}
-                        className="btn bg-red-600 hover:bg-red-700 text-white px-6 py-3 font-semibold"
-                    >
-                        Activate Lockdown
-                    </button>
-                </div>
-            </div>
-
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="card">
@@ -188,6 +197,7 @@ export default function Dashboard() {
                                 onDownload={handleDownload}
                                 onShare={handleShare}
                                 onDelete={handleDelete}
+                                onRevoke={handleRevoke}
                             />
                         ))}
                     </div>

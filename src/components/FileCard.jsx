@@ -3,10 +3,10 @@
  */
 
 import { useState } from 'react';
-import { MoreVertical, Download, Share2, Trash2, FileText, Image, File } from 'lucide-react';
+import { MoreVertical, Download, Share2, Trash2, FileText, Image, File, ShieldOff } from 'lucide-react';
 import { formatFileSize } from '../utils/storage';
 
-export default function FileCard({ file, onDownload, onShare, onDelete }) {
+export default function FileCard({ file, onDownload, onShare, onDelete, onRevoke }) {
     const [showMenu, setShowMenu] = useState(false);
 
     const getFileIcon = () => {
@@ -90,6 +90,18 @@ export default function FileCard({ file, onDownload, onShare, onDelete }) {
                                 <Share2 className="w-4 h-4" />
                                 Share
                             </button>
+                            {file.shared_count > 0 && onRevoke && (
+                                <button
+                                    onClick={() => {
+                                        onRevoke(file);
+                                        setShowMenu(false);
+                                    }}
+                                    className="w-full px-4 py-2 text-left text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                                >
+                                    <ShieldOff className="w-4 h-4" />
+                                    Revoke Access
+                                </button>
+                            )}
                             <button
                                 onClick={() => {
                                     onDelete(file);
