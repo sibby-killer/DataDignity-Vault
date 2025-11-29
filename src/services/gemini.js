@@ -1,227 +1,322 @@
-/**
- * Google Gemini API integration for breach detection
- * Uses free Gemini Pro API to scan for potential data breaches
- */
+import { geminiRateLimiter } from '../utils/performanceOptimizer'
+import { getFallbackHelp, getFallbackShareMessage } from './fallbackService'
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-// Using Gemini 2.5 Flash - Generally available model for v1beta API
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
-/**
- * Scan for potential breach using Gemini API
- * @param {string} fileName - File name
- * @param {string} fileType - File type
- * @param {string} uploadDate - Upload date
- * @returns {Promise<{status: string, details: string, confidence: number}>}
- */
-export async function scanForBreach(fileName, fileType, uploadDate) {
-    if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
-        return {
-            status: 'ERROR',
-            details: 'Gemini API key not configured',
-            confidence: 0
-        };
+// Helper function to make API requests to Gemini
+export const makeGeminiRequest = async (prompt, systemInstruction = '') => {
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured')
     }
 
-    try {
-        const prompt = `You are a cybersecurity analyst helping detect potential data breaches. 
+    // Check rate limit
+    if (!geminiRateLimiter.canMakeRequest()) {
+      const waitTime = geminiRateLimiter.getWaitTime()
+      throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds.`)
+    }
+
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              text: systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      },
+      safetySettings: [
+        {
+          category: 'HARM_CATEGORY_HARASSMENT',
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+        },
+        {
+          category: 'HARM_CATEGORY_HATE_SPEECH',
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+        },
+        {
+          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+        },
+        {
+          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+        }
+      ]
+    }
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    })
+
+    if (!response.ok) {
+      const errorData = await response.text()
+      console.error('Gemini API error response:', errorData)
+      throw new Error(`Gemini API error: ${response.status} - ${response.statusText}`)
+    }
+
+    const data = await response.json()
     
-Analyze if a file with the following details might have been exposed in any known data breaches or leaks:
-
-File Name: ${fileName}
-File Type: ${fileType}
-Upload Date: ${uploadDate}
-
-Based on the file name and type, determine if this could be sensitive personal data that might appear in known breaches. Consider:
-- Common patterns in leaked data (e.g., "passport", "ID", "medical", "financial")
-- File types commonly found in breaches (documents, images of IDs, etc.)
-- Recent breach reports and patterns
-
-Respond ONLY with a JSON object in this exact format:
-{
-  "status": "FOUND" or "NOT_FOUND" or "UNCERTAIN",
-  "details": "Brief explanation of why this file might or might not be at risk",
-  "confidence": 0-100 (confidence percentage)
-}
-
-Be conservative - if uncertain, use "UNCERTAIN" status.`;
-
-        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.2,
-                    topK: 1,
-                    topP: 1,
-                    maxOutputTokens: 256,
-                }
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`Gemini API error: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        // Safety check for response structure
-        if (!data.candidates || !data.candidates[0] || !data.candidates[0].content || !data.candidates[0].content.parts || !data.candidates[0].content.parts[0]) {
-            console.warn('Unexpected Gemini API response structure:', data);
-            return {
-                status: 'UNKNOWN',
-                details: 'Unable to analyze - API response format changed',
-                confidence: 0
-            };
-        }
-
-        const text = data.candidates[0].content.parts[0].text;
-
-        if (!text) {
-            throw new Error('No response from Gemini API');
-        }
-
-        // Parse JSON response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            throw new Error('Invalid response format from Gemini API');
-        }
-
-        const result = JSON.parse(jsonMatch[0]);
-
-        return {
-            status: result.status || 'ERROR',
-            details: result.details || 'Unknown',
-            confidence: result.confidence || 0
-        };
-    } catch (error) {
-        console.error('Breach scan error:', error);
-        return {
-            status: 'ERROR',
-            details: `Scan failed: ${error.message}`,
-            confidence: 0
-        };
-    }
-}
-
-/**
- * Batch scan multiple files
- * @param {Array} files - Array of file objects {name, type, uploadDate}
- * @returns {Promise<Array>} Array of scan results
- */
-export async function batchScanFiles(files) {
-    const results = [];
-
-    // Process files sequentially to avoid rate limits (60 req/min)
-    for (const file of files) {
-        const result = await scanForBreach(file.name, file.type, file.uploadDate);
-        results.push({
-            fileId: file.id,
-            fileName: file.name,
-            ...result
-        });
-
-        // Wait 1 second between requests to stay under rate limit
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    if (!data.candidates || data.candidates.length === 0) {
+      throw new Error('No response generated from Gemini API')
     }
 
-    return results;
+    if (data.candidates[0].finishReason === 'SAFETY') {
+      throw new Error('Content was blocked by safety filters')
+    }
+
+    return data.candidates[0].content.parts[0].text
+  } catch (error) {
+    console.error('Gemini API request failed:', error)
+    throw error
+  }
 }
 
-/**
- * Check if Gemini API is configured
- * @returns {boolean}
- */
-export function isGeminiConfigured() {
-    return GEMINI_API_KEY && GEMINI_API_KEY !== 'your_gemini_api_key_here';
-}
-
-/**
- * Scan for breaches associated with an email address
- * @param {string} email - Email address to check
- * @returns {Promise<{breachesFound: number, message: string, recommendations: Array}>}
- */
-export async function scanForBreaches(email) {
+// Help system - AI assistant for user questions
+export const getHelp = async (question, context = '') => {
+  try {
+    // Check if API key is available and valid
     if (!GEMINI_API_KEY || GEMINI_API_KEY === 'your_gemini_api_key_here') {
-        throw new Error('Gemini API key not configured. Please add your API key to continue.');
+      console.warn('Gemini API key not configured, using fallback help')
+      return getFallbackHelp(question)
     }
 
-    try {
-        const prompt = `You are a cybersecurity analyst helping users check if their email has been involved in any known data breaches.
+    const systemInstruction = `You are SecureVault AI Assistant, a supportive and empowering digital security companion.
 
-Email to check: ${email}
+    CORE MISSION: Support users in taking control of their digital privacy and security, with special focus on Gender-Based Violence (GBV) prevention and digital safety for vulnerable individuals.
 
-Based on known data breach patterns and publicly available breach databases (like Have I Been Pwned), analyze if this email might have been exposed in any major data breaches.
+    PLATFORM KNOWLEDGE:
+    - SecureVault: Privacy-focused file storage with end-to-end encryption
+    - Features: Blockchain permissions (Polygon), AI security monitoring, secure sharing
+    - Emergency lockdown for immediate protection
+    - Social media sharing with encrypted, expiring links
+    - Time-based access controls and file revocation
 
-Consider:
-- Common breach patterns and indicators
-- Major known breaches from recent years
-- Email domain patterns that might indicate higher risk
-- General security recommendations
+    GBV & DIGITAL SAFETY GUIDELINES:
+    - Always prioritize user safety and privacy
+    - Provide clear guidance on digital security practices
+    - Recognize signs of digital harassment or surveillance
+    - Offer practical steps for protecting sensitive information
+    - Support users in maintaining control over their data
+    - Never judge or blame users for their situations
 
-Respond ONLY with a JSON object in this exact format:
-{
-  "breachesFound": 0 or positive number,
-  "message": "Brief explanation of findings",
-  "recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"]
+    SECURITY BEST PRACTICES:
+    - Use strong, unique passwords and 2FA
+    - Regularly review shared files and permissions
+    - Be cautious about metadata in images/files
+    - Use emergency lockdown if feeling unsafe
+    - Keep software updated and use encrypted communications
+
+    For detailed technical information, refer users to: https://github.com/sibby-killer/DataDignity-Vault
+
+    Be supportive, non-judgmental, and prioritize safety above all else.`
+
+    const prompt = context 
+      ? `User context: ${context}\n\nUser question: ${question}`
+      : `User question: ${question}`
+
+    const response = await makeGeminiRequest(prompt, systemInstruction)
+    return response
+  } catch (error) {
+    console.error('Help system error:', error)
+    // Return fallback help instead of throwing error
+    return getFallbackHelp(question)
+  }
 }
 
-If no specific breaches are found, set breachesFound to 0 and provide general security recommendations.
-Be helpful and provide actionable advice.`;
+// Breach detection - scan files for potential security issues
+export const scanForBreaches = async (fileName, fileSize, fileType, metadata = {}) => {
+  try {
+    const systemInstruction = `You are a cybersecurity expert analyzing files for potential security risks. 
+    Analyze the provided file metadata and identify any potential security concerns.
+    
+    Focus on:
+    - Suspicious file extensions or types
+    - Unusual file sizes for the type
+    - Potentially dangerous file names
+    - Signs of malware or suspicious patterns
+    - Privacy risks
+    
+    Respond with a JSON object containing:
+    {
+      "riskLevel": "low|medium|high|critical",
+      "issues": ["array of specific issues found"],
+      "recommendations": ["array of recommended actions"],
+      "safe": boolean
+    }`
 
-        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{
-                        text: prompt
-                    }]
-                }],
-                generationConfig: {
-                    temperature: 0.3,
-                    topK: 1,
-                    topP: 1,
-                    maxOutputTokens: 512,
-                }
-            })
-        });
+    const prompt = `Analyze this file for security risks:
+    
+    File Name: ${fileName}
+    File Size: ${fileSize} bytes
+    File Type: ${fileType}
+    Additional Metadata: ${JSON.stringify(metadata, null, 2)}
+    
+    Please provide a security assessment.`
 
-        if (!response.ok) {
-            throw new Error(`Gemini API error: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        const text = data.candidates[0]?.content?.parts[0]?.text;
-
-        if (!text) {
-            throw new Error('No response from Gemini API');
-        }
-
-        // Parse JSON response
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            throw new Error('Invalid response format from Gemini API');
-        }
-
-        const result = JSON.parse(jsonMatch[0]);
-
-        return {
-            breachesFound: result.breachesFound || 0,
-            message: result.message || 'Scan completed',
-            recommendations: result.recommendations || []
-        };
-    } catch (error) {
-        console.error('Breach scan error:', error);
-        throw new Error(error.message || 'Failed to scan for breaches');
+    const response = await makeGeminiRequest(prompt, systemInstruction)
+    
+    try {
+      return JSON.parse(response)
+    } catch (parseError) {
+      console.warn('Failed to parse JSON response, returning raw text')
+      return {
+        riskLevel: 'medium',
+        issues: ['Unable to parse security analysis'],
+        recommendations: ['Manual review recommended'],
+        safe: false,
+        rawResponse: response
+      }
     }
+  } catch (error) {
+    console.error('Breach scan error:', error)
+    throw error
+  }
+}
+
+// Smart file categorization
+export const categorizeFile = async (fileName, fileType, fileSize) => {
+  try {
+    const systemInstruction = `You are a file organization expert. Categorize files into logical groups to help users organize their storage.
+    
+    Return a JSON object with:
+    {
+      "category": "string (Documents, Images, Videos, Audio, Code, Archives, etc.)",
+      "subcategory": "string (more specific classification)",
+      "suggestedTags": ["array", "of", "relevant", "tags"],
+      "description": "brief description of the file type"
+    }`
+
+    const prompt = `Categorize this file:
+    
+    File Name: ${fileName}
+    File Type: ${fileType}
+    File Size: ${fileSize} bytes`
+
+    const response = await makeGeminiRequest(prompt, systemInstruction)
+    
+    try {
+      return JSON.parse(response)
+    } catch (parseError) {
+      return {
+        category: 'Unknown',
+        subcategory: 'Miscellaneous',
+        suggestedTags: [],
+        description: 'File type analysis unavailable'
+      }
+    }
+  } catch (error) {
+    console.error('File categorization error:', error)
+    return {
+      category: 'Unknown',
+      subcategory: 'Miscellaneous', 
+      suggestedTags: [],
+      description: 'File categorization failed'
+    }
+  }
+}
+
+// Generate secure sharing messages
+export const generateShareMessage = async (fileName, senderName, expiryDate = null) => {
+  try {
+    const systemInstruction = `Generate a professional, secure email message for file sharing. 
+    Include security reminders and clear instructions. Keep it friendly but professional.
+    Consider privacy and safety, especially for vulnerable users.`
+
+    const expiryText = expiryDate 
+      ? ` This sharing link will expire on ${new Date(expiryDate).toLocaleDateString()}.`
+      : ' This file has been shared with no expiration date.'
+
+    const prompt = `Generate an email message for sharing a secure file:
+    
+    File: ${fileName}
+    Sender: ${senderName}
+    Expiry: ${expiryDate ? new Date(expiryDate).toLocaleDateString() : 'No expiry'}
+    
+    The message should:
+    - Be professional and friendly
+    - Explain that the file is encrypted and secure
+    - Include basic security reminders
+    - Be concise but informative`
+
+    const response = await makeGeminiRequest(prompt, systemInstruction)
+    return response
+  } catch (error) {
+    console.error('Share message generation error:', error)
+    const expiryText = expiryDate 
+      ? ` This sharing link will expire on ${new Date(expiryDate).toLocaleDateString()}.`
+      : ' This file has been shared with no expiration date.'
+      
+    return `Hello,
+
+${senderName} has securely shared "${fileName}" with you through SecureVault.
+
+Your file has been encrypted end-to-end for maximum security.${expiryText}
+
+Security reminders:
+- Only download files from trusted sources
+- Scan downloaded files with antivirus software
+- Keep your account credentials secure
+
+Best regards,
+SecureVault Team`
+  }
+}
+
+// Privacy assessment for uploaded content
+export const assessPrivacy = async (fileName, fileType) => {
+  try {
+    const systemInstruction = `You are a privacy expert. Assess files for potential privacy risks and provide recommendations.
+    
+    Return a JSON object:
+    {
+      "privacyLevel": "public|internal|confidential|restricted",
+      "risks": ["array of privacy risks"],
+      "recommendations": ["array of privacy protection recommendations"],
+      "shouldEncrypt": boolean,
+      "suggestedRetention": "days|months|years"
+    }`
+
+    const prompt = `Assess privacy implications for:
+    
+    File Name: ${fileName}
+    File Type: ${fileType}
+    
+    Consider potential personal information, business sensitivity, and legal implications.`
+
+    const response = await makeGeminiRequest(prompt, systemInstruction)
+    
+    try {
+      return JSON.parse(response)
+    } catch (parseError) {
+      return {
+        privacyLevel: 'confidential',
+        risks: ['Privacy assessment unavailable'],
+        recommendations: ['Use strong encryption', 'Limit sharing'],
+        shouldEncrypt: true,
+        suggestedRetention: 'years'
+      }
+    }
+  } catch (error) {
+    console.error('Privacy assessment error:', error)
+    return {
+      privacyLevel: 'confidential',
+      risks: ['Privacy assessment failed'],
+      recommendations: ['Use strong encryption', 'Limit sharing'],
+      shouldEncrypt: true,
+      suggestedRetention: 'years'
+    }
+  }
 }
