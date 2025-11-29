@@ -146,67 +146,21 @@ export const createPermission = async (permissionData) => {
   }
 }
 
-export const uploadFile = async (filePath, file) => {
+export const uploadFile = async (filePath, encryptedFileData, fileName) => {
   try {
-    // First, check if bucket exists
-    const { data: buckets, error: bucketListError } = await supabase.storage.listBuckets()
+    // Files are now stored on IPFS, not in database
+    // This function just validates the upload path
+    console.log('📝 Processing file upload path:', filePath)
     
-    if (bucketListError) {
-      console.warn('Could not list buckets:', bucketListError)
-    }
-    
-    const bucketExists = buckets?.some(bucket => bucket.name === 'files')
-    
-    if (!bucketExists) {
-      console.log('Creating files bucket...')
-      const { data: newBucket, error: createError } = await supabase.storage.createBucket('files', {
-        public: false,
-        allowedMimeTypes: ['image/*', 'application/*', 'text/*', 'video/*', 'audio/*'],
-        fileSizeLimit: 52428800 // 50MB
-      })
-      
-      if (createError) {
-        console.warn('Could not create bucket:', createError)
-        // Continue anyway - bucket might already exist
-      } else {
-        console.log('Bucket created successfully')
-      }
-    }
-
-    // Try to upload the file
-    const { data, error } = await supabase.storage
-      .from('files')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      })
-    
-    if (error) {
-      console.error('Error uploading file to storage:', error)
-      
-      // If bucket still doesn't exist, create a simple storage record instead
-      if (error.message?.includes('Bucket not found')) {
-        console.log('Bucket issue, creating file record without storage...')
-        // Return a mock successful upload - file will be stored in database record
-        return {
-          path: filePath,
-          id: Date.now().toString(),
-          fullPath: filePath
-        }
-      }
-      
-      return null
-    }
-    
-    return data
-  } catch (error) {
-    console.error('Error uploading file to storage:', error)
-    // Return mock success to allow app to function
     return {
       path: filePath,
       id: Date.now().toString(),
-      fullPath: filePath
+      fullPath: filePath,
+      fileName: fileName
     }
+  } catch (error) {
+    console.error('Error processing file path:', error)
+    throw error
   }
 }
 

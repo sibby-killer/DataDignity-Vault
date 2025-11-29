@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { supabase, getCurrentUser } from './services/supabase'
 import { connectMetaMask, onAccountChanged, onNetworkChanged, isMetaMaskConnected } from './services/blockchain'
+import { initServerWallet } from './services/serverWallet'
 import { generateDailyMotivation, getPersonalizedGreeting, getTimeOfDay } from './services/motivationService'
 import authManager from './utils/authManager'
 import { handleError } from './utils/errorHandler'
@@ -53,36 +54,8 @@ function App() {
   }, [user])
 
   const generateWelcomeMotivation = async () => {
-    try {
-      const userName = user?.email?.split('@')[0] || 'User'
-      const greeting = getPersonalizedGreeting(userName)
-      const timeOfDay = getTimeOfDay()
-      
-      // Show greeting first
-      setMotivation(greeting)
-      setShowMotivation(true)
-      
-      // Generate AI motivation in background
-      try {
-        const aiMotivation = await generateDailyMotivation(userName, timeOfDay)
-        setTimeout(() => {
-          setMotivation(aiMotivation)
-        }, 2000)
-        
-        // Auto-hide after 8 seconds
-        setTimeout(() => {
-          setShowMotivation(false)
-        }, 8000)
-      } catch (error) {
-        console.warn('Failed to generate AI motivation:', error)
-        // Keep the greeting for a few seconds
-        setTimeout(() => {
-          setShowMotivation(false)
-        }, 4000)
-      }
-    } catch (error) {
-      console.error('Error generating welcome motivation:', error)
-    }
+    // Skip all greeting/motivation messages as requested
+    return
   }
 
   const initializeApp = async () => {
@@ -118,6 +91,14 @@ function App() {
           }
         }
       )
+
+      // Initialize server wallet for blockchain operations
+      try {
+        await initServerWallet()
+        console.log('✅ Server wallet initialized successfully')
+      } catch (error) {
+        console.warn('Server wallet initialization failed:', error)
+      }
 
       // Try to connect to MetaMask if available (optional)
       try {

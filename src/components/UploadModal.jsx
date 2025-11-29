@@ -5,6 +5,7 @@ const UploadModal = ({ onClose, onUpload, user, walletAddress }) => {
   const [selectedFiles, setSelectedFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef(null)
 
@@ -264,19 +265,43 @@ const UploadModal = ({ onClose, onUpload, user, walletAddress }) => {
             {/* Security Options */}
             <div className="mt-6">
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                File Password (Optional)
+                Your Account Password <span className="text-red-500">*</span>
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter a password to encrypt this file"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Files are encrypted by default. Adding a password provides an extra layer of security.
-              </p>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your account password to encrypt this file"
+                  className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-gray-600 space-y-1">
+                <p className="font-medium">🔐 <strong>Client-Side Encryption Process:</strong></p>
+                <p>• Your password generates a master encryption key (never stored)</p>
+                <p>• Each file gets a unique random key for encryption</p>
+                <p>• Files are encrypted on your device before upload</p>
+                <p>• Only you can decrypt your files with your password</p>
+                <p className="text-blue-600 font-medium">💡 We cannot see your files - even we can't decrypt them!</p>
+              </div>
             </div>
 
             {/* Blockchain Status */}
@@ -298,7 +323,7 @@ const UploadModal = ({ onClose, onUpload, user, walletAddress }) => {
           <div className="bg-gray-50 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6">
             <button
               onClick={handleUpload}
-              disabled={selectedFiles.length === 0 || uploading}
+              disabled={selectedFiles.length === 0 || uploading || !password.trim()}
               className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {uploading ? (

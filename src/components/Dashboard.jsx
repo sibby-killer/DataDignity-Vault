@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { getSharedFiles } from '../services/supabase'
 import { isMetaMaskConnected } from '../services/blockchain'
+import EmergencyLockdown from './EmergencyLockdown'
 import LoadingSpinner from './LoadingSpinner'
 
 const Dashboard = ({ user, walletAddress, onToast }) => {
@@ -102,6 +103,7 @@ const Dashboard = ({ user, walletAddress, onToast }) => {
 
   return (
     <div className="space-y-6">
+      {/* Emergency Lockdown moved to security section - not on main dashboard */}
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white">
         <h1 className="text-2xl font-bold mb-2">

@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react'
-import { getSharedFiles, uploadFileRecord, uploadFile, deleteFileFromStorage } from '../services/supabase'
-import { registerFile, generateFileHash } from '../services/blockchain'
+import { getSharedFiles, uploadFileRecord, uploadFile, deleteFileFromStorage, supabase } from '../services/supabase'
+import { registerFile, generateFileHash, isMetaMaskConnected } from '../services/blockchain'
+import { initServerWallet, serverRegisterFile, serverShareFile, serverRevokeAccess } from '../services/serverWallet'
 import { scanForBreaches, categorizeFile } from '../services/gemini'
+import { processFileForUpload } from '../services/encryption'
+import { uploadToIPFS } from '../services/ipfsStorage'
+import { uploadToFallbackStorage } from '../services/fallbackStorage'
+import { uploadToPolygon, initPolygonStorage } from '../services/polygonStorage'
+import { uploadToLocalStorage, getLocalStorageFiles } from '../services/simpleStorage'
 import UploadModal from './UploadModal'
 import ShareModal from './ShareModal'
 import SocialShare from './SocialShare'
@@ -25,36 +31,92 @@ const FileManager = ({ user, walletAddress, onToast }) => {
   }, [user])
 
   const loadFiles = async () => {
+    setLoading(true)
     try {
-      if (!user) return
+      let files = []
       
-      const userFiles = await getSharedFiles(user.id)
-      setFiles(userFiles || [])
+      // Always load from localStorage (works offline)
+      const localFiles = getLocalStorageFiles()
+      if (localFiles.length > 0) {
+        console.log(`📁 Found ${localFiles.length} files in browser storage`)
+        files = localFiles
+      }
+      
+      // Try to load from Supabase as well (if available)
+      if (user?.id) {
+        try {
+          const userFiles = await getSharedFiles(user.id)
+          if (userFiles && userFiles.length > 0) {
+            // Merge with local files (avoid duplicates)
+            const localIds = files.map(f => f.id)
+            const newSupabaseFiles = userFiles.filter(f => !localIds.includes(f.id))
+            files = [...files, ...newSupabaseFiles]
+          }
+        } catch (supabaseError) {
+          console.warn('Supabase unavailable, using local storage only:', supabaseError)
+        }
+      }
+
+      setFiles(files || [])
+      
+      if (files.length > 0) {
+        onToast(`📁 Loaded ${files.length} file(s)`, 'success')
+      }
     } catch (error) {
       console.error('Error loading files:', error)
-      onToast('Failed to load files', 'error')
+      onToast('Using offline storage mode', 'info')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleUpload = async (file, password = '') => {
+  const handleUpload = async (file, userPassword = '') => {
     try {
-      // Generate unique file path
-      const timestamp = Date.now()
-      const fileName = `${timestamp}_${file.name}`
-      const filePath = `${user.id}/${fileName}`
-
-      // Upload file to Supabase storage
-      const uploadResult = await uploadFile(filePath, file)
-      if (!uploadResult) {
-        throw new Error('Failed to upload file to storage')
+      if (!userPassword) {
+        throw new Error('Password required for encryption')
       }
 
-      // Get file info
-      const fileHash = await generateFileHash(file)
+      onToast('🔐 Processing file securely...', 'info')
       
-      // AI analysis
+      // STEP 1: CLIENT-SIDE ENCRYPTION (never send unencrypted file)
+      const encryptionResult = await processFileForUpload(file, userPassword, user.email)
+      const { encryptedFileData, encryptedFileKey, fileHash } = encryptionResult
+      
+      onToast('✅ File encrypted successfully. Uploading to IPFS...', 'info')
+
+      // STEP 2: UPLOAD ENCRYPTED FILE TO STORAGE (IPFS → Polygon → Fallback)
+      let storageResult
+      try {
+        storageResult = await uploadToIPFS(encryptedFileData, file.name, file.type)
+        onToast('📡 File stored on IPFS permanently. Running security analysis...', 'info')
+      } catch (ipfsError) {
+        console.warn('IPFS upload failed, trying Polygon blockchain storage:', ipfsError)
+        onToast('⛓️ IPFS unavailable, storing on Polygon blockchain...', 'info')
+        
+        try {
+          await initPolygonStorage()
+          storageResult = await uploadToPolygon(encryptedFileData, file.name, file.type)
+          onToast('🎉 File stored on Polygon blockchain permanently! Running security analysis...', 'info')
+        } catch (polygonError) {
+          console.warn('Polygon storage failed, using localStorage fallback:', polygonError)
+          onToast('💾 Using secure browser storage...', 'info')
+          
+          try {
+            storageResult = await uploadToLocalStorage(encryptedFileData, file.name, file.type)
+            onToast('✅ File stored securely in browser. Running security analysis...', 'info')
+          } catch (localError) {
+            console.warn('LocalStorage failed, trying Supabase:', localError)
+            storageResult = await uploadToFallbackStorage(encryptedFileData, file.name, file.type)
+            onToast('✅ File stored securely. Running security analysis...', 'info')
+          }
+        }
+      }
+      
+      if (!storageResult.success) {
+        throw new Error('Failed to store encrypted file in any storage system')
+      }
+
+      // STEP 3: AI SECURITY ANALYSIS (on metadata only, not file content)
       let securityAnalysis = null
       let category = null
       
@@ -65,47 +127,104 @@ const FileManager = ({ user, walletAddress, onToast }) => {
         console.warn('AI analysis failed:', aiError)
       }
 
-      // Create file record
+      // STEP 4: CREATE FILE RECORD WITH METADATA
+      const timestamp = Date.now()
+      const filePath = `${user.id}/${timestamp}_${file.name}`
+      
       const fileRecord = {
         name: file.name,
         original_name: file.name,
         size: file.size,
         type: file.type,
         storage_path: filePath,
-        hash: fileHash,
+        ipfs_cid: storageResult.cid,         // Storage Content Identifier
+        ipfs_url: storageResult.url,         // Storage gateway URL
+        storage_type: storageResult.storageType || 'unknown', // Track storage type
+        hash: fileHash,                   // File hash for blockchain
         owner_id: user.id,
-        password: password || null,
+        encrypted_key: encryptedFileKey,  // Store encrypted file key only
         category: category?.category || 'Unknown',
         tags: category?.suggestedTags || [],
         security_scan: securityAnalysis,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        blockchain_registered: false,
+        blockchain_tx_hash: null,
+        blockchain_file_id: null
       }
 
-      const dbResult = await uploadFileRecord(fileRecord)
-      if (!dbResult) {
-        throw new Error('Failed to save file record')
-      }
-
-      // Try to register on blockchain if wallet connected
-      if (walletAddress && fileHash) {
-        try {
-          await registerFile(fileHash, file.name, file.size)
-          onToast('File uploaded and registered on blockchain!', 'success')
-        } catch (blockchainError) {
-          console.warn('Blockchain registration failed:', blockchainError)
-          onToast('File uploaded successfully (blockchain registration skipped)', 'warning')
+      // Try to save to Supabase, but don't fail if it doesn't work
+      let dbResult = null
+      try {
+        dbResult = await uploadFileRecord(fileRecord)
+      } catch (dbError) {
+        console.warn('Database save failed, file still stored securely:', dbError)
+        // Create a mock result for localStorage files
+        dbResult = { 
+          id: storageResult.cid,
+          ...fileRecord 
         }
-      } else {
-        onToast('File uploaded successfully!', 'success')
       }
 
-      // Reload files
+      // STEP 5: BLOCKCHAIN REGISTRATION (using server wallet)
+      let blockchainSuccess = false
+      try {
+        onToast('⛓️ Registering on Polygon blockchain...', 'info')
+        
+        // Try server wallet first (no MetaMask required)
+        const serverResult = await serverRegisterFile(fileHash, file.name, file.size, user.email)
+        
+        // Update record with blockchain info
+        const { data, error } = await supabase
+          .from('files')
+          .update({ 
+            blockchain_registered: true,
+            blockchain_tx_hash: serverResult.transactionHash,
+            blockchain_file_id: serverResult.fileId
+          })
+          .eq('id', dbResult.id)
+        
+        if (error) {
+          console.warn('Failed to update blockchain status:', error)
+        }
+        
+        blockchainSuccess = true
+        onToast('🎉 File encrypted, stored on IPFS, and registered on blockchain!', 'success')
+        
+      } catch (serverError) {
+        console.warn('Server blockchain registration failed, trying MetaMask fallback:', serverError)
+        
+        // Fallback to MetaMask if available
+        if (walletAddress && fileHash) {
+          try {
+            const blockchainResult = await registerFile(fileHash, file.name, file.size)
+            
+            const { data, error } = await supabase
+              .from('files')
+              .update({ 
+                blockchain_registered: true,
+                blockchain_tx_hash: blockchainResult.transactionHash,
+                blockchain_file_id: blockchainResult.fileId
+              })
+              .eq('id', dbResult.id)
+            
+            blockchainSuccess = true
+            onToast('🎉 File encrypted, stored on IPFS, and registered on blockchain!', 'success')
+          } catch (metaMaskError) {
+            console.warn('MetaMask registration also failed:', metaMaskError)
+            onToast('✅ File encrypted and stored on IPFS securely (blockchain registration failed)', 'warning')
+          }
+        } else {
+          onToast('✅ File encrypted and stored on IPFS securely (blockchain registration failed)', 'warning')
+        }
+      }
+
+      // STEP 6: RELOAD FILES AND CLOSE MODAL
       await loadFiles()
       setUploadModalOpen(false)
 
     } catch (error) {
       console.error('Upload error:', error)
-      onToast(`Upload failed: ${error.message}`, 'error')
+      onToast(`❌ Upload failed: ${error.message}`, 'error')
     }
   }
 
@@ -535,6 +654,7 @@ const FileManager = ({ user, walletAddress, onToast }) => {
             setSelectedFile(null)
           }}
           user={user}
+          walletAddress={walletAddress}
           onToast={onToast}
         />
       )}

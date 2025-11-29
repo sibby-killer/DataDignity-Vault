@@ -100,7 +100,7 @@ const Auth = ({ onToast }) => {
         if (error) {
           throw error
         }
-        onToast('Welcome back!', 'success')
+        onToast('Signed in successfully', 'success')
       } else {
         // Sign up
         const { user, error } = await signUpWithEmail(formData.email, formData.password)
@@ -108,20 +108,29 @@ const Auth = ({ onToast }) => {
           throw error
         }
 
-        // Show success message and switch to login
+        // Show success message and detailed instructions
         if (user) {
-          onToast('Account created! Please check your email to verify your account, then sign in.', 'success')
+          onToast('🎉 Account created successfully!', 'success')
           
-          // Wait 2 seconds then switch to login view
+          // Show detailed email confirmation instructions
+          setTimeout(() => {
+            onToast('📧 Please check your email and click the confirmation link', 'info')
+          }, 1500)
+          
+          setTimeout(() => {
+            onToast('💡 After confirming, return here to sign in', 'info')
+          }, 3000)
+          
+          // Wait 4 seconds then switch to login view
           setTimeout(() => {
             setIsLogin(true)
             setFormData({
-              email: formData.email, // Keep the email
+              email: formData.email, // Keep the email for convenience
               password: '',
               confirmPassword: '',
               fullName: ''
             })
-          }, 2000)
+          }, 4500)
         }
       }
     } catch (error) {
@@ -135,7 +144,15 @@ const Auth = ({ onToast }) => {
       
       // Handle verification required
       if (error.message?.includes('Email not confirmed')) {
-        friendlyMessage = 'Please check your email and verify your account first.'
+        friendlyMessage = '📧 Please check your email and click the confirmation link before signing in.'
+      }
+      
+      // Handle user already registered
+      if (error.message?.includes('already registered')) {
+        friendlyMessage = '✉️ This email is already registered. Please sign in instead.'
+        setTimeout(() => {
+          setIsLogin(true)
+        }, 2000)
       }
       
       onToast(friendlyMessage, 'error')
@@ -154,9 +171,9 @@ const Auth = ({ onToast }) => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">SecureVault</h2>
+          <h2 className="text-3xl font-bold text-gray-900">DataDignity Vault</h2>
           <p className="mt-2 text-sm text-gray-600">
-            {isLogin ? 'Sign in to your account' : 'Create your secure account'}
+            Your files, your control, your dignity
           </p>
         </div>
 
@@ -329,10 +346,30 @@ const Auth = ({ onToast }) => {
               }
             </button>
 
-            {!isLogin && !termsAccepted && (
-              <p className="mt-2 text-xs text-center text-gray-600">
-                You must read and accept our Terms & Conditions before creating an account
-              </p>
+            {!isLogin && (
+              <div className="mt-4 space-y-2">
+                <label className="flex items-start">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-1 rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  />
+                  <span className="ml-2 text-sm text-gray-600">
+                    I have read and accept the{' '}
+                    <button
+                      type="button"
+                      onClick={() => setShowTerms(true)}
+                      className="text-blue-600 hover:text-blue-500 underline font-medium"
+                    >
+                      Terms and Conditions
+                    </button>
+                    <span className="block text-xs text-gray-500 mt-1">
+                      Required to create account - click to read our privacy policy
+                    </span>
+                  </span>
+                </label>
+              </div>
             )}
 
             <div className="text-center">
@@ -360,7 +397,7 @@ const Auth = ({ onToast }) => {
 
         {/* Features */}
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Why SecureVault?</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Why DataDignity Vault?</h3>
           <ul className="space-y-2 text-sm text-gray-600">
             <li className="flex items-center">
               <svg className="h-4 w-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
