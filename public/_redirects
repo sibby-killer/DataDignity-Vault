@@ -1,0 +1,6 @@
+# Vercel/Netlify SPA Routing
+/*    /index.html   200
+
+# Handle file access routes
+/access/*    /index.html   200
+/preview/*   /index.html   200
