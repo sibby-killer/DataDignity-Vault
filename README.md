@@ -24,7 +24,7 @@ Every day, women face digital threats that traditional file storage can't protec
 
 ### **Real-World Impact Stories**
 
-**💔 Sarah's Story (Revenge Porn)**
+**💔 Sarah's Story (Revenge )**
 > *"My ex leaked my private photos after we broke up. I had no way to prove he didn't have permission anymore. DataDignity Vault would have given me blockchain evidence that I revoked his access on March 15th at 3:47 PM - making his sharing after that date legally prosecutable."*
 
 **🏥 Maria's Medical Emergency** 
