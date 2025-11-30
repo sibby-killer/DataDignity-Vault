@@ -237,73 +237,145 @@ const FileManager = ({ user, walletAddress, onToast }) => {
         blockchain_file_id: null
       }
 
-      // Try to save to Supabase, but don't fail if it doesn't work
+      // STEP 5: SAVE TO SUPABASE STORAGE AND DATABASE
       let dbResult = null
-      try {
-        dbResult = await uploadFileRecord(fileRecord)
-      } catch (dbError) {
-        console.warn('Database save failed, file still stored securely:', dbError)
-        // Create a mock result for localStorage files
-        dbResult = { 
-          id: storageResult.cid,
-          ...fileRecord 
+      let thumbnailUrl = null
+      
+      // Upload file to Supabase Storage first (for thumbnails and persistence)
+      if (user?.id) {
+        try {
+          const storageFileName = `${user.id}/${Date.now()}_${file.name}`
+          
+          // Upload original file to Supabase storage (using existing encrypted-files bucket)
+          const { data: storageData, error: storageError } = await supabase.storage
+            .from('encrypted-files')
+            .upload(storageFileName, file, {
+              cacheControl: '3600',
+              upsert: true  // Allow overwrite if file exists
+            })
+          
+          console.log('Supabase storage upload result:', { storageData, storageError })
+
+          if (!storageError && storageData) {
+            // Get public URL for the file
+            const { data: publicUrlData } = supabase.storage
+              .from('encrypted-files')
+              .getPublicUrl(storageData.path)
+
+            if (publicUrlData?.publicUrl) {
+              thumbnailUrl = publicUrlData.publicUrl
+              console.log('✅ File uploaded to Supabase storage with thumbnail URL')
+            }
+          } else {
+            console.warn('Supabase storage upload failed:', storageError)
+          }
+        } catch (storageError) {
+          console.warn('Supabase storage upload failed:', storageError)
         }
       }
+      
+      // Create simplified file record for database
+      const fileId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      const storageType = storageResult?.storageType || 'localStorage'
+      
+      const simplifiedFileRecord = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        owner_id: user?.id || 'anonymous',
+        created_at: new Date().toISOString(),
+        storage_path: storageResult?.ipfs_path || storageResult?.fallback_path || fileId,
+        storage_type: storageType,
+        thumbnail_url: thumbnailUrl,
+        download_count: 0,
+        shared: false
+      }
+      
+      // Save file record to Supabase database
+      try {
+        if (user?.id) {
+          const { data: savedFile, error: dbError } = await supabase
+            .from('files')
+            .insert([simplifiedFileRecord])
+            .select()
+            .single()
 
-      // STEP 5: BLOCKCHAIN REGISTRATION (using server wallet)
-      let blockchainSuccess = false
+          if (!dbError && savedFile) {
+            dbResult = savedFile
+            console.log('✅ File record saved to Supabase database')
+          } else {
+            console.warn('Database save failed:', dbError)
+            dbResult = { id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, ...simplifiedFileRecord }
+          }
+        } else {
+          dbResult = { id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, ...simplifiedFileRecord }
+        }
+      } catch (dbError) {
+        console.warn('Database save failed, file still stored securely:', dbError)
+        dbResult = { id: `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, ...simplifiedFileRecord }
+      }
+
+      // STEP 6: SAVE TO LOCALSTORAGE FOR OFFLINE ACCESS
+      // Generate base64 content for localStorage
+      const base64Content = await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1]
+          resolve(base64)
+        }
+        reader.onerror = () => resolve('')
+        reader.readAsDataURL(file)
+      })
+
+      const localFileData = {
+        id: dbResult.id,
+        fileName: file.name,
+        mimeType: file.type,
+        size: file.size,
+        content: base64Content,
+        timestamp: Date.now(),
+        storage_type: storageType,
+        thumbnail_url: thumbnailUrl
+      }
+      
+      localStorage.setItem(dbResult.id, JSON.stringify(localFileData))
+      
+      // Update files list in localStorage  
+      const existingFiles = JSON.parse(localStorage.getItem('datadignity_files') || '[]')
+      existingFiles.push({...dbResult})
+      localStorage.setItem('datadignity_files', JSON.stringify(existingFiles))
+
+      // STEP 7: BLOCKCHAIN REGISTRATION (using server wallet only - no MetaMask required)
       try {
         onToast('⛓️ Registering on Polygon blockchain...', 'info')
         
-        // Try server wallet first (no MetaMask required)
+        // Use server wallet only (single MetaMask account for all transactions)
         const serverResult = await serverRegisterFile(fileHash, file.name, file.size, user.email)
         
-        // Update record with blockchain info
-        const { data, error } = await supabase
-          .from('files')
-          .update({ 
-            blockchain_registered: true,
-            blockchain_tx_hash: serverResult.transactionHash,
-            blockchain_file_id: serverResult.fileId
-          })
-          .eq('id', dbResult.id)
-        
-        if (error) {
-          console.warn('Failed to update blockchain status:', error)
+        // Update record with blockchain info only if we have a database record
+        if (dbResult.id && !dbResult.id.startsWith('local_')) {
+          const { error } = await supabase
+            .from('files')
+            .update({ 
+              blockchain_registered: true,
+              blockchain_tx_hash: serverResult.transactionHash,
+              blockchain_file_id: serverResult.fileId
+            })
+            .eq('id', dbResult.id)
+          
+          if (error) {
+            console.warn('Failed to update blockchain status in database:', error)
+          }
         }
         
-        blockchainSuccess = true
-        onToast('🎉 File encrypted, stored on IPFS, and registered on blockchain!', 'success')
+        onToast('🎉 File encrypted, stored securely, and registered on blockchain!', 'success')
         
       } catch (serverError) {
-        console.warn('Server blockchain registration failed, trying MetaMask fallback:', serverError)
-        
-        // Fallback to MetaMask if available
-        if (walletAddress && fileHash) {
-          try {
-            const blockchainResult = await registerFile(fileHash, file.name, file.size)
-            
-            const { data, error } = await supabase
-              .from('files')
-              .update({ 
-                blockchain_registered: true,
-                blockchain_tx_hash: blockchainResult.transactionHash,
-                blockchain_file_id: blockchainResult.fileId
-              })
-              .eq('id', dbResult.id)
-            
-            blockchainSuccess = true
-            onToast('🎉 File encrypted, stored on IPFS, and registered on blockchain!', 'success')
-          } catch (metaMaskError) {
-            console.warn('MetaMask registration also failed:', metaMaskError)
-            onToast('✅ File encrypted and stored on IPFS securely (blockchain registration failed)', 'warning')
-          }
-        } else {
-          onToast('✅ File encrypted and stored on IPFS securely (blockchain registration failed)', 'warning')
-        }
+        console.warn('Server blockchain registration failed (optional feature):', serverError)
+        onToast('✅ File encrypted and stored securely (blockchain features unavailable)', 'info')
       }
 
-      // STEP 6: RELOAD FILES AND CLOSE MODAL
+      // STEP 8: RELOAD FILES AND CLOSE MODAL
       await loadFiles()
       setUploadModalOpen(false)
       

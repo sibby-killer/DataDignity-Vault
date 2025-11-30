@@ -17,6 +17,8 @@ const Auth = ({ onToast }) => {
     fullName: ''
   })
   const [errors, setErrors] = useState({})
+  const [globalError, setGlobalError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [passwordStrength, setPasswordStrength] = useState(null)
@@ -29,12 +31,20 @@ const Auth = ({ onToast }) => {
       [name]: value
     }))
     
-    // Clear field-specific errors
+    // Clear field-specific errors and global error
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
         [name]: null
       }))
+    }
+    
+    // Clear global error and success message when user starts typing
+    if (globalError) {
+      setGlobalError('')
+    }
+    if (successMessage) {
+      setSuccessMessage('')
     }
     
     // Check password strength for password field
@@ -110,52 +120,69 @@ const Auth = ({ onToast }) => {
 
         // Show success message and detailed instructions
         if (user) {
+          setSuccessMessage('🎉 Account created successfully! Please check your email for a confirmation link.')
           onToast('🎉 Account created successfully!', 'success')
           
           // Show detailed email confirmation instructions
           setTimeout(() => {
-            onToast('📧 Please check your email and click the confirmation link', 'info')
-          }, 1500)
+            setSuccessMessage('📧 Check your email and click the confirmation link to activate your account.')
+          }, 2000)
           
-          setTimeout(() => {
-            onToast('💡 After confirming, return here to sign in', 'info')
-          }, 3000)
-          
-          // Wait 4 seconds then switch to login view
+          // Wait 5 seconds then switch to login view
           setTimeout(() => {
             setIsLogin(true)
+            setSuccessMessage('')
             setFormData({
               email: formData.email, // Keep the email for convenience
               password: '',
               confirmPassword: '',
               fullName: ''
             })
-          }, 4500)
+            onToast('You can now sign in with your credentials', 'info')
+          }, 5000)
         }
       }
     } catch (error) {
       console.error('Auth error:', error)
-      let friendlyMessage = handleAuthError(error)
       
-      // Handle specific rate limiting error
-      if (error.message?.includes('21 seconds')) {
-        friendlyMessage = 'Please wait a moment before trying again. Too many requests.'
-      }
+      let friendlyMessage = 'Something went wrong. Please try again.'
+      let shouldSwitchToLogin = false
       
-      // Handle verification required
-      if (error.message?.includes('Email not confirmed')) {
+      // Handle specific error types with user-friendly messages
+      if (error.message?.includes('Invalid login credentials')) {
+        friendlyMessage = '❌ Invalid email or password. Please check your credentials and try again.'
+      } else if (error.message?.includes('Email rate limit exceeded')) {
+        friendlyMessage = '⏱️ Too many attempts. Please wait a moment before trying again.'
+      } else if (error.message?.includes('Email not confirmed')) {
         friendlyMessage = '📧 Please check your email and click the confirmation link before signing in.'
+      } else if (error.message?.includes('User already registered')) {
+        friendlyMessage = '✉️ This email is already registered. Please sign in instead.'
+        shouldSwitchToLogin = true
+      } else if (error.message?.includes('Signup is disabled')) {
+        friendlyMessage = '🚫 New account registration is currently disabled. Please contact support.'
+      } else if (error.message?.includes('Password should be at least')) {
+        friendlyMessage = '🔒 Password must be at least 6 characters long.'
+      } else if (error.message?.includes('Unable to validate email address')) {
+        friendlyMessage = '📧 Please enter a valid email address.'
+      } else if (error.message?.includes('Network request failed')) {
+        friendlyMessage = '🌐 Network error. Please check your connection and try again.'
+      } else {
+        // Use the error handler for other cases
+        friendlyMessage = handleAuthError(error)
       }
       
-      // Handle user already registered
-      if (error.message?.includes('already registered')) {
-        friendlyMessage = '✉️ This email is already registered. Please sign in instead.'
+      // Set both global error (for form display) and toast
+      setGlobalError(friendlyMessage)
+      onToast(friendlyMessage, 'error')
+      
+      // Switch to login if user already exists
+      if (shouldSwitchToLogin) {
         setTimeout(() => {
           setIsLogin(true)
-        }, 2000)
+          setGlobalError('')
+        }, 2500)
       }
       
-      onToast(friendlyMessage, 'error')
     } finally {
       setLoading(false)
     }
@@ -180,6 +207,84 @@ const Auth = ({ onToast }) => {
         {/* Auth Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="bg-white rounded-lg shadow-lg p-6 space-y-4">
+            
+            {/* Success Message Display */}
+            {successMessage && (
+              <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-green-700 font-medium">
+                      {successMessage}
+                    </p>
+                  </div>
+                  <div className="ml-auto pl-3">
+                    <div className="-mx-1.5 -my-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSuccessMessage('')}
+                        className="inline-flex bg-green-50 rounded-md p-1.5 text-green-400 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"
+                      >
+                        <span className="sr-only">Dismiss</span>
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Global Error Display */}
+            {globalError && (
+              <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700 font-medium">
+                      {globalError}
+                    </p>
+                    {globalError.includes('Invalid login credentials') && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsLogin(false)
+                            setGlobalError('')
+                          }}
+                          className="text-sm text-red-600 hover:text-red-500 underline"
+                        >
+                          Need to create an account?
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="ml-auto pl-3">
+                    <div className="-mx-1.5 -my-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setGlobalError('')}
+                        className="inline-flex bg-red-50 rounded-md p-1.5 text-red-400 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-red-50 focus:ring-red-600"
+                      >
+                        <span className="sr-only">Dismiss</span>
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {!isLogin && (
               <div>
                 <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
@@ -191,9 +296,14 @@ const Auth = ({ onToast }) => {
                   type="text"
                   value={formData.fullName}
                   onChange={handleInputChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 ${
+                    errors.fullName ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                  }`}
                   placeholder="Enter your full name"
                 />
+                {errors.fullName && (
+                  <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>
+                )}
               </div>
             )}
 
@@ -208,9 +318,14 @@ const Auth = ({ onToast }) => {
                 required
                 value={formData.email}
                 onChange={handleInputChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 ${
+                  errors.email ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
                 placeholder="Enter your email"
               />
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+              )}
             </div>
 
             <div>

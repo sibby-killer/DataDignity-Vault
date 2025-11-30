@@ -171,119 +171,43 @@ function App() {
     return <Auth onToast={showToast} />
   }
 
-  // Main app layout
+  // Main app layout - Router is handled in main.jsx
   return (
-    <Router>
-      <Routes>
-        {/* File access route - public access */}
-        <Route path="/access/:fileId" element={<FileAccess />} />
-        <Route path="/preview/:fileId" element={<FileAccess />} />
-        
-        {/* Main app route */}
-        <Route path="/*" element={<MainApp />} />
-      </Routes>
-    </Router>
+    <MainApp 
+      user={user} 
+      walletAddress={walletAddress}
+      handleWalletConnect={handleWalletConnect}
+      sidebarOpen={sidebarOpen}
+      setSidebarOpen={setSidebarOpen}
+      showToast={showToast}
+      toast={toast}
+      setToast={setToast}
+      motivation={motivation}
+      showMotivation={showMotivation}
+      setShowMotivation={setShowMotivation}
+    />
   )
 }
 
-const MainApp = () => {
-  const [user, setUser] = useState(null)
-  const [walletAddress, setWalletAddress] = useState('')
-  const [activeTab, setActiveTab] = useState('files')
-  const [toast, setToast] = useState(null)
-  const [showMotivation, setShowMotivation] = useState(false)
-  const [motivation, setMotivation] = useState('')
-
-  // Initialize user session
-  useEffect(() => {
-    initializeUser()
-  }, [])
-
-  const initializeUser = async () => {
-    try {
-      const currentUser = await getCurrentUser()
-      if (currentUser) {
-        setUser(currentUser)
-      }
-
-      // Initialize server wallet for blockchain operations
-      try {
-        await initServerWallet()
-        console.log('✅ Server wallet initialized successfully')
-      } catch (error) {
-        console.warn('Server wallet initialization failed:', error)
-      }
-
-      // Try to connect to MetaMask if available (optional)
-      try {
-        if (window.ethereum) {
-          const isConnected = await isMetaMaskConnected()
-          if (isConnected) {
-            const result = await connectMetaMask()
-            if (result.success) {
-              setWalletAddress(result.address)
-            }
-          }
-        }
-      } catch (error) {
-        // MetaMask is optional - app works without it
-        console.log('MetaMask not available')
-      }
-    } catch (error) {
-      console.error('Initialization error:', error)
-    }
-  }
-
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type, id: Date.now() })
-  }
-
-  const handleConnectWallet = async () => {
-    try {
-      const result = await connectMetaMask()
-      if (result.success) {
-        setWalletAddress(result.address)
-        showToast('Wallet connected successfully', 'success')
-      } else {
-        showToast(result.error, 'error')
-      }
-    } catch (error) {
-      console.error('Wallet connection error:', error)
-      showToast('Failed to connect wallet', 'error')
-    }
-  }
-
-  const handleSignOut = async () => {
-    try {
-      await signOut()
-      setUser(null)
-      setWalletAddress('')
-      showToast('Signed out successfully', 'success')
-    } catch (error) {
-      console.error('Sign out error:', error)
-      showToast('Failed to sign out', 'error')
-    }
-  }
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'files':
-        return <FileManager user={user} walletAddress={walletAddress} onToast={showToast} />
-      case 'shared':
-        return <SharedFiles user={user} onToast={showToast} />
-      case 'security':
-        return <BreachMonitor files={[]} user={user} onToast={showToast} />
-      case 'profile':
-        return <Profile user={user} onToast={showToast} />
-      default:
-        return <FileManager user={user} walletAddress={walletAddress} onToast={showToast} />
-    }
-  }
-
+const MainApp = ({ 
+  user, 
+  walletAddress, 
+  handleWalletConnect, 
+  sidebarOpen, 
+  setSidebarOpen, 
+  showToast, 
+  toast, 
+  setToast,
+  motivation,
+  showMotivation,
+  setShowMotivation 
+}) => {
+  
   // Show auth page if user is not logged in
   if (!user) {
     return <Auth onToast={showToast} />
   }
+
 
   return (
     <div className="min-h-screen bg-gray-50">

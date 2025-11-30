@@ -12,6 +12,9 @@ const FileAccess = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [fileContent, setFileContent] = useState(null)
+  const [selectedFormat, setSelectedFormat] = useState('jpeg')
+  const [showFormatDropdown, setShowFormatDropdown] = useState(false)
+  const [converting, setConverting] = useState(false)
   const token = searchParams.get('token')
   const expires = searchParams.get('expires')
 
@@ -93,33 +96,164 @@ const FileAccess = () => {
     }
   }
 
-  const downloadFile = async () => {
+  const downloadFile = async (format = selectedFormat) => {
     if (!fileContent || !file) return
 
     try {
-      const blob = new Blob([fileContent], { type: file.type })
-      const url = URL.createObjectURL(blob)
+      setConverting(true)
+      let finalBlob
+      let finalFileName = file.name
+
+      // Convert file if needed
+      if (file.type?.startsWith('image/') && format !== 'original') {
+        const convertedResult = await convertImageFormat(fileContent, file.type, format)
+        if (convertedResult.success) {
+          finalBlob = convertedResult.blob
+          finalFileName = changeFileExtension(file.name, format)
+        } else {
+          console.error('Conversion failed:', convertedResult.error)
+          // Fallback to original format if conversion fails
+          if (fileContent instanceof ArrayBuffer || fileContent instanceof Uint8Array) {
+            finalBlob = new Blob([fileContent], { type: file.type })
+          } else if (typeof fileContent === 'string') {
+            // Handle base64 string
+            const byteCharacters = atob(fileContent)
+            const byteNumbers = new Array(byteCharacters.length)
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i)
+            }
+            const byteArray = new Uint8Array(byteNumbers)
+            finalBlob = new Blob([byteArray], { type: file.type })
+          } else {
+            finalBlob = new Blob([fileContent], { type: file.type })
+          }
+          finalFileName = file.name
+          alert(`⚠️ Format conversion failed. Downloading as original ${file.type} format.`)
+        }
+      } else {
+        // Handle original format download properly
+        if (fileContent instanceof ArrayBuffer || fileContent instanceof Uint8Array) {
+          finalBlob = new Blob([fileContent], { type: file.type })
+        } else if (typeof fileContent === 'string') {
+          // Handle base64 string
+          const byteCharacters = atob(fileContent)
+          const byteNumbers = new Array(byteCharacters.length)
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i)
+          }
+          const byteArray = new Uint8Array(byteNumbers)
+          finalBlob = new Blob([byteArray], { type: file.type })
+        } else {
+          finalBlob = new Blob([fileContent], { type: file.type })
+        }
+      }
+
+      const url = URL.createObjectURL(finalBlob)
       const link = document.createElement('a')
       link.href = url
-      link.download = file.name
+      link.download = finalFileName
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
       // Track download count
-      await trackDownload()
+      await trackDownload(format)
       
       // Show download success message
       setError(null)
-      alert('✅ File downloaded successfully!')
+      alert(`✅ File downloaded successfully as ${format.toUpperCase()}!`)
+      setShowFormatDropdown(false)
     } catch (error) {
       console.error('Download failed:', error)
       alert('❌ Download failed. Please try again.')
+    } finally {
+      setConverting(false)
     }
   }
 
-  const trackDownload = async () => {
+  const convertImageFormat = async (fileContent, originalType, targetFormat) => {
+    return new Promise((resolve) => {
+      try {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        const img = new Image()
+        
+        img.onload = () => {
+          try {
+            canvas.width = img.width
+            canvas.height = img.height
+            ctx.drawImage(img, 0, 0)
+            
+            const mimeType = `image/${targetFormat === 'jpg' ? 'jpeg' : targetFormat}`
+            const quality = targetFormat === 'jpeg' || targetFormat === 'jpg' ? 0.9 : undefined
+            
+            canvas.toBlob((blob) => {
+              if (blob) {
+                resolve({ success: true, blob })
+              } else {
+                resolve({ success: false, error: 'Canvas conversion failed' })
+              }
+            }, mimeType, quality)
+          } catch (canvasError) {
+            console.error('Canvas processing error:', canvasError)
+            resolve({ success: false, error: 'Canvas processing failed' })
+          }
+        }
+        
+        img.onerror = (imgError) => {
+          console.error('Image load error:', imgError)
+          resolve({ success: false, error: 'Failed to load image for conversion' })
+        }
+        
+        // Create proper image data URL from file content
+        if (fileContent instanceof ArrayBuffer || fileContent instanceof Uint8Array) {
+          // Handle binary data
+          const byteArray = new Uint8Array(fileContent)
+          const base64String = btoa(String.fromCharCode(...byteArray))
+          img.src = `data:${originalType};base64,${base64String}`
+        } else if (typeof fileContent === 'string') {
+          // Handle base64 string
+          if (fileContent.startsWith('data:')) {
+            img.src = fileContent
+          } else {
+            img.src = `data:${originalType};base64,${fileContent}`
+          }
+        } else {
+          // Handle as blob
+          const blob = new Blob([fileContent], { type: originalType })
+          img.src = URL.createObjectURL(blob)
+        }
+        
+      } catch (error) {
+        console.error('Image conversion setup error:', error)
+        resolve({ success: false, error: error.message })
+      }
+    })
+  }
+
+  const changeFileExtension = (filename, newFormat) => {
+    const lastDot = filename.lastIndexOf('.')
+    if (lastDot !== -1) {
+      return filename.substring(0, lastDot + 1) + newFormat
+    }
+    return filename + '.' + newFormat
+  }
+
+  const getAvailableFormats = () => {
+    if (!file?.type?.startsWith('image/')) {
+      return [{ value: 'original', label: 'Original Format' }]
+    }
+    
+    return [
+      { value: 'jpeg', label: 'JPEG (.jpg)' },
+      { value: 'png', label: 'PNG (.png)' },
+      { value: 'webp', label: 'WebP (.webp)' },
+      { value: 'original', label: 'Original Format' }
+    ]
+  }
+
+  const trackDownload = async (format = 'original') => {
     try {
       // Update download count in Supabase if file exists in database
       if (file?.id && !file.id.startsWith('local_')) {
@@ -133,6 +267,20 @@ const FileAccess = () => {
 
         if (error) {
           console.warn('Failed to update download count in database:', error)
+        }
+
+        // Track individual download in download_logs table
+        const { error: logError } = await supabase
+          .from('download_logs')
+          .insert({
+            file_id: file.id,
+            download_format: format,
+            user_ip: null, // Will be handled by server
+            user_agent: navigator.userAgent.substring(0, 255)
+          })
+
+        if (logError) {
+          console.warn('Failed to log download:', logError)
         }
       }
 
@@ -297,16 +445,86 @@ const FileAccess = () => {
                 </svg>
                 <span>End-to-end encrypted</span>
               </div>
-              <button
-                onClick={downloadFile}
-                disabled={!fileContent}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-                </svg>
-                Download File
-              </button>
+              
+              {/* Download Button with Format Options */}
+              <div className="relative inline-flex">
+                {getAvailableFormats().length > 1 ? (
+                  <div className="flex">
+                    <button
+                      onClick={() => downloadFile(selectedFormat)}
+                      disabled={!fileContent || converting}
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-l-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {converting ? (
+                        <>
+                          <svg className="-ml-1 mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Converting...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                          </svg>
+                          Download as {selectedFormat.toUpperCase()}
+                        </>
+                      )}
+                    </button>
+                    
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowFormatDropdown(!showFormatDropdown)}
+                        disabled={!fileContent || converting}
+                        className="inline-flex items-center px-2 py-2 border border-l-0 border-transparent shadow-sm text-sm font-medium rounded-r-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      
+                      {/* Format Dropdown */}
+                      {showFormatDropdown && (
+                        <div className="absolute right-0 bottom-full mb-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                          <div className="py-1">
+                            {getAvailableFormats().map((format) => (
+                              <button
+                                key={format.value}
+                                onClick={() => {
+                                  setSelectedFormat(format.value)
+                                  setShowFormatDropdown(false)
+                                }}
+                                className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
+                                  selectedFormat === format.value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                                }`}
+                              >
+                                {format.label}
+                                {selectedFormat === format.value && (
+                                  <svg className="inline-block ml-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                  </svg>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => downloadFile('original')}
+                    disabled={!fileContent || converting}
+                    className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg className="-ml-1 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    </svg>
+                    Download File
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
