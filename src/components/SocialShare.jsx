@@ -7,15 +7,11 @@ const SocialShare = ({ file, onClose, onToast }) => {
   // Generate encrypted shareable link
   const generateShareableLink = async () => {
     try {
-      // Create temporary shareable version
-      const shareHash = await generateFileHash(new Blob([JSON.stringify({
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        timestamp: Date.now()
-      })]))
+      // Use the actual file ID for direct access
+      const fileId = file.id || file.storage_path || Date.now().toString()
+      const expirationTime = Date.now() + (24 * 60 * 60 * 1000) // 24 hours
       
-      return `${window.location.origin}/shared/${shareHash}?expires=${Date.now() + (24 * 60 * 60 * 1000)}`
+      return `${window.location.origin}/shared/${fileId}?expires=${expirationTime}`
     } catch (error) {
       console.error('Error generating shareable link:', error)
       return `${window.location.origin}/shared/${file.id}`

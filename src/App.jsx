@@ -17,6 +17,7 @@ import BreachMonitor from './components/BreachMonitor'
 import Auth from './components/Auth'
 import Toast from './components/Toast'
 import LoadingSpinner from './components/LoadingSpinner'
+import FileAccess from './pages/FileAccess'
 
 function App() {
   const [user, setUser] = useState(null)
@@ -165,7 +166,7 @@ function App() {
     )
   }
 
-  // Show auth page if user is not logged in
+  // Show auth page if user is not logged in  
   if (!user) {
     return <Auth onToast={showToast} />
   }
@@ -295,5 +296,6 @@ function App() {
     </div>
   )
 }
+
 
 export default App

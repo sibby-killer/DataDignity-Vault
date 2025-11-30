@@ -14,6 +14,82 @@ import SocialShare from './SocialShare'
 import { revokeFileAccess, destroyFile } from '../services/fileRevocation'
 import LoadingSpinner from './LoadingSpinner'
 
+// Component for image thumbnails
+const ImageThumbnail = ({ file }) => {
+  const [thumbnailUrl, setThumbnailUrl] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const generateThumbnail = async () => {
+      try {
+        if (!file.type?.startsWith('image/')) return
+
+        // Try to get image data from localStorage
+        const localData = localStorage.getItem(file.id)
+        if (localData) {
+          const fileData = JSON.parse(localData)
+          if (fileData.content) {
+            // Create blob URL for the image
+            const byteCharacters = atob(fileData.content)
+            const byteNumbers = new Array(byteCharacters.length)
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i)
+            }
+            const byteArray = new Uint8Array(byteNumbers)
+            const blob = new Blob([byteArray], { type: file.type })
+            const url = URL.createObjectURL(blob)
+            setThumbnailUrl(url)
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to generate thumbnail:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    generateThumbnail()
+
+    // Cleanup function
+    return () => {
+      if (thumbnailUrl) {
+        URL.revokeObjectURL(thumbnailUrl)
+      }
+    }
+  }, [file])
+
+  if (loading) {
+    return (
+      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+        <svg className="h-8 w-8 text-gray-400 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    )
+  }
+
+  if (thumbnailUrl) {
+    return (
+      <img 
+        src={thumbnailUrl}
+        alt={file.name}
+        className="w-full h-full object-cover"
+        onError={() => setThumbnailUrl(null)}
+      />
+    )
+  }
+
+  // Fallback icon
+  return (
+    <div className="w-full h-full bg-blue-50 flex items-center justify-center">
+      <svg className="h-12 w-12 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M5 3h14c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2zm0 2v14h14V5H5z"/>
+      </svg>
+    </div>
+  )
+}
+
 const FileManager = ({ user, walletAddress, onToast }) => {
   const [files, setFiles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -47,15 +123,24 @@ const FileManager = ({ user, walletAddress, onToast }) => {
         try {
           const userFiles = await getSharedFiles(user.id)
           if (userFiles && userFiles.length > 0) {
-            // Merge with local files (avoid duplicates)
-            const localIds = files.map(f => f.id)
-            const newSupabaseFiles = userFiles.filter(f => !localIds.includes(f.id))
+            // Merge with local files (avoid duplicates by name and size)
+            const localFileSignatures = files.map(f => `${f.name}_${f.size}`)
+            const newSupabaseFiles = userFiles.filter(f => 
+              !localFileSignatures.includes(`${f.name}_${f.size}`)
+            )
             files = [...files, ...newSupabaseFiles]
           }
         } catch (supabaseError) {
           console.warn('Supabase unavailable, using local storage only:', supabaseError)
         }
       }
+
+      // Load download counts for each file
+      const downloadLog = JSON.parse(localStorage.getItem('download_log') || '{}')
+      files = files.map(file => ({
+        ...file,
+        download_count: downloadLog[file.id] || file.download_count || 0
+      }))
 
       setFiles(files || [])
       
@@ -221,6 +306,9 @@ const FileManager = ({ user, walletAddress, onToast }) => {
       // STEP 6: RELOAD FILES AND CLOSE MODAL
       await loadFiles()
       setUploadModalOpen(false)
+      
+      // Notify dashboard of file changes
+      window.dispatchEvent(new CustomEvent('filesUpdated'))
 
     } catch (error) {
       console.error('Upload error:', error)
@@ -272,16 +360,54 @@ const FileManager = ({ user, walletAddress, onToast }) => {
     if (!confirm(`Are you sure you want to delete "${file.name}"?`)) return
 
     try {
+      // Delete from Supabase database if it exists
+      if (file.id && !file.id.startsWith('local_')) {
+        try {
+          const { error: dbError } = await supabase
+            .from('files')
+            .delete()
+            .eq('id', file.id)
+            .eq('owner_id', user.id)
+          
+          if (dbError) {
+            console.warn('Database delete failed:', dbError)
+          }
+        } catch (dbError) {
+          console.warn('Database delete failed:', dbError)
+        }
+      }
+
+      // Delete from localStorage if it's a local file
+      if (file.id.startsWith('local_') || file.storage_type === 'localStorage') {
+        localStorage.removeItem(file.id)
+        try {
+          const localFiles = JSON.parse(localStorage.getItem('datadignity_files') || '[]')
+          const updatedFiles = localFiles.filter(f => f.id !== file.id)
+          localStorage.setItem('datadignity_files', JSON.stringify(updatedFiles))
+        } catch (localError) {
+          console.warn('Failed to update localStorage:', localError)
+        }
+      }
+
       // Delete from storage
-      await deleteFileFromStorage(file.storage_path)
+      try {
+        await deleteFileFromStorage(file.storage_path)
+      } catch (storageError) {
+        console.warn('Storage delete failed:', storageError)
+      }
       
-      // Remove from local state
-      setFiles(files.filter(f => f.id !== file.id))
+      // Remove from local state immediately
+      setFiles(currentFiles => currentFiles.filter(f => f.id !== file.id))
       onToast('File deleted successfully', 'success')
+      
+      // Notify dashboard of changes
+      window.dispatchEvent(new CustomEvent('filesUpdated'))
+      
     } catch (error) {
       console.error('Delete error:', error)
       onToast('Failed to delete file', 'error')
     }
+    setShowActionMenu(null)
   }
 
   const formatFileSize = (bytes) => {
@@ -468,21 +594,20 @@ const FileManager = ({ user, walletAddress, onToast }) => {
               {viewMode === 'grid' ? (
                 <>
                   {/* Thumbnail */}
-                  <div className="file-thumbnail">
+                  <div className="w-full h-48 bg-gray-50 rounded-t-lg overflow-hidden flex items-center justify-center">
                     {file.type?.startsWith('image/') ? (
-                      <img 
-                        src={`data:${file.type};base64,${file.preview || ''}`}
-                        alt={file.name}
-                        className="w-full h-full object-cover rounded-t-lg"
-                        onError={(e) => {
-                          e.target.style.display = 'none'
-                          e.target.nextSibling.style.display = 'flex'
-                        }}
-                      />
-                    ) : null}
-                    <div className="flex items-center justify-center" style={{ display: file.type?.startsWith('image/') ? 'none' : 'flex' }}>
-                      {getFileIcon(file.name, file.type)}
-                    </div>
+                      <ImageThumbnail file={file} />
+                    ) : file.type?.startsWith('video/') ? (
+                      <div className="w-full h-full bg-purple-100 flex items-center justify-center">
+                        <svg className="h-12 w-12 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        {getFileIcon(file.name, file.type)}
+                      </div>
+                    )}
                   </div>
                   
                   {/* File Info */}
@@ -492,6 +617,11 @@ const FileManager = ({ user, walletAddress, onToast }) => {
                     </h3>
                     <p className="text-xs text-gray-500 mt-1">
                       {formatFileSize(file.size)} • {new Date(file.created_at).toLocaleDateString()}
+                      {file.download_count > 0 && (
+                        <span className="block text-green-600 font-medium">
+                          📥 {file.download_count} download{file.download_count > 1 ? 's' : ''}
+                        </span>
+                      )}
                     </p>
                     
                     {/* Actions */}

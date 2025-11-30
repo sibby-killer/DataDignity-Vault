@@ -18,20 +18,63 @@ const Dashboard = ({ user, walletAddress, onToast }) => {
     loadDashboardData()
   }, [user])
 
+  // Listen for file updates from other components
+  useEffect(() => {
+    const handleFilesUpdated = () => {
+      console.log('📊 Dashboard refreshing due to file changes...')
+      loadDashboardData()
+    }
+
+    // Listen for custom events from FileManager
+    window.addEventListener('filesUpdated', handleFilesUpdated)
+    
+    // Also listen for localStorage changes
+    window.addEventListener('storage', handleFilesUpdated)
+    
+    return () => {
+      window.removeEventListener('filesUpdated', handleFilesUpdated)
+      window.removeEventListener('storage', handleFilesUpdated)
+    }
+  }, [user])
+
   const loadDashboardData = async () => {
     try {
       if (!user) return
 
-      // Get user's files
-      const files = await getSharedFiles(user.id)
+      let allFiles = []
       
-      // Calculate stats
-      const totalFiles = files.length
-      const sharedFiles = files.filter(file => file.shared).length
-      const storageUsed = files.reduce((total, file) => total + (file.size || 0), 0)
+      // Get files from localStorage first (always available)
+      try {
+        const localFiles = JSON.parse(localStorage.getItem('datadignity_files') || '[]')
+        if (localFiles.length > 0) {
+          allFiles = localFiles
+        }
+      } catch (localError) {
+        console.warn('Failed to load localStorage files:', localError)
+      }
+
+      // Get user's files from Supabase and merge
+      try {
+        const supabaseFiles = await getSharedFiles(user.id)
+        if (supabaseFiles && supabaseFiles.length > 0) {
+          // Merge with local files, avoid duplicates by name and size
+          const localFileSignatures = allFiles.map(f => `${f.name}_${f.size}`)
+          const newSupabaseFiles = supabaseFiles.filter(f => 
+            !localFileSignatures.includes(`${f.name}_${f.size}`)
+          )
+          allFiles = [...allFiles, ...newSupabaseFiles]
+        }
+      } catch (supabaseError) {
+        console.warn('Supabase unavailable for dashboard, using local only:', supabaseError)
+      }
+      
+      // Calculate stats from all files
+      const totalFiles = allFiles.length
+      const sharedFiles = allFiles.filter(file => file.shared).length
+      const storageUsed = allFiles.reduce((total, file) => total + (file.size || 0), 0)
       
       // Get recent files (last 5)
-      const recentFiles = files
+      const recentFilesList = allFiles
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
         .slice(0, 5)
 
@@ -39,9 +82,9 @@ const Dashboard = ({ user, walletAddress, onToast }) => {
         totalFiles,
         sharedFiles,
         storageUsed,
-        recentActivity: files.slice(0, 3) // Recent activity items
+        recentActivity: allFiles.slice(0, 3) // Recent activity items
       })
-      setRecentFiles(recentFiles)
+      setRecentFiles(recentFilesList)
     } catch (error) {
       console.error('Error loading dashboard data:', error)
       onToast('Failed to load dashboard data', 'error')
