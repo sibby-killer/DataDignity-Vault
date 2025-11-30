@@ -129,14 +129,16 @@ export const sendEmailNotification = async (to, subject, body) => {
 
 // Create preview link for images (public access without account)
 export const generatePreviewLink = (fileId, fileName, fileType) => {
-  if (!fileType?.startsWith('image/')) {
-    return null
-  }
-  
-  // Generate preview URL
-  const previewUrl = `${window.location.origin}/preview/${fileId}`
+  // Generate preview URL for any file type
+  const previewUrl = `${window.location.origin}/access/${fileId}`
   
   return previewUrl
+}
+
+// Create shareable access link with token
+export const generateAccessLink = (fileId, accessToken) => {
+  const accessUrl = `${window.location.origin}/access/${fileId}?token=${accessToken}`
+  return accessUrl
 }
 
 export default {
