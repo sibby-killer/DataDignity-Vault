@@ -25,7 +25,7 @@ Every day, women face digital threats that traditional file storage can't protec
 ### **Real-World Impact Stories**
 
 **💔 Sarah's Story (Revenge )**
-> *"My ex leaked my private photos after we broke up. I had no way to prove he didn't have permission anymore. DataDignity Vault would have given me blockchain evidence that I revoked his access on March 15th at 3:47 PM - making his sharing after that date legally prosecutable."*
+> *"My ex leaked my private photos after we broke up. I had no way to prove he didn't have permission anymore. DataDignity Vault would have given me blockchain evidence that I revoked his access on November 30th at 3:47 PM - making his sharing after that date legally prosecutable."*
 
 **🏥 Maria's Medical Emergency** 
 > *"I needed to share my HIV status with a new partner, but feared he might leak it if things went wrong. With DataDignity Vault, I could share my medical records knowing I could instantly revoke access and have legal proof if he violated my trust."*
