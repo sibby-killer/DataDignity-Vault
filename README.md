@@ -1,8 +1,20 @@
-# 🔐 DataDignity Vault
+## 🔗 **Quick Access**
+
+<div align="center">
+
+### 🌐 **[LIVE APP](https://secure-vault-rouge.vercel.app/)** | 📊 **[PITCH DECK](https://gamma.app/docs/DataDignity-Vault-qoll32seaizsc5r)** | ⭐ **[GITHUB](https://github.com/sibby-killer/DataDignity-Vault)**
+
+</div>
+
+---
+
+# 🔐 SecureVault
 ### *Your files, your control, your dignity*
 
 > **A revolutionary secure file sharing platform designed specifically for women's safety and digital sovereignty**
 
+[![Live App](https://img.shields.io/badge/🌐_Live_App-Available-brightgreen.svg)](https://secure-vault-rouge.vercel.app/)
+[![Pitch Deck](https://img.shields.io/badge/📊_Pitch_Deck-View-blue.svg)](https://gamma.app/docs/DataDignity-Vault-qoll32seaizsc5r)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![React](https://img.shields.io/badge/React-18.x-blue.svg)](https://reactjs.org/)
 [![Blockchain](https://img.shields.io/badge/Blockchain-Polygon-purple.svg)](https://polygon.technology/)
@@ -10,7 +22,7 @@
 
 ---
 
-## 🛡️ **What DataDignity Vault Solves**
+## 🛡️ **What SecureVault Solves**
 
 ### **The Problem: Women's Digital Safety Crisis**
 
@@ -25,17 +37,17 @@ Every day, women face digital threats that traditional file storage can't protec
 ### **Real-World Impact Stories**
 
 **💔 Sarah's Story (Revenge Porn)**
-> *"My ex leaked my private photos after we broke up. I had no way to prove he didn't have permission anymore. DataDignity Vault would have given me blockchain evidence that I revoked his access on March 15th at 3:47 PM - making his sharing after that date legally prosecutable."*
+> *"My ex leaked my private photos after we broke up. I had no way to prove he didn't have permission anymore. SecureVault would have given me blockchain evidence that I revoked his access on March 15th at 3:47 PM - making his sharing after that date legally prosecutable."*
 
 **🏥 Maria's Medical Emergency** 
-> *"I needed to share my HIV status with a new partner, but feared he might leak it if things went wrong. With DataDignity Vault, I could share my medical records knowing I could instantly revoke access and have legal proof if he violated my trust."*
+> *"I needed to share my HIV status with a new partner, but feared he might leak it if things went wrong. With SecureVault, I could share my medical records knowing I could instantly revoke access and have legal proof if he violated my trust."*
 
 **👩‍💼 Aisha's Professional Crisis**
-> *"My employer demanded to see my medical records for a background check. I was terrified they'd keep copies forever. DataDignity Vault let me share them with a 7-day expiry and blockchain proof they no longer had permission."*
+> *"My employer demanded to see my medical records for a background check. I was terrified they'd keep copies forever. SecureVault let me share them with a 7-day expiry and blockchain proof they no longer had permission."*
 
 ---
 
-## 🎯 **How DataDignity Vault Solves This**
+## 🎯 **How SecureVault Solves This**
 
 ### **🔐 Military-Grade Protection**
 - **Client-side encryption**: Files encrypted on YOUR device before upload
@@ -373,13 +385,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ### **🌟 Recognition**
 
-*"DataDignity Vault represents a paradigm shift in how we think about digital privacy and women's safety. This isn't just a file storage app - it's a digital rights protection system."*
+*"SecureVault represents a paradigm shift in how we think about digital privacy and women's safety. This isn't just a file storage app - it's a digital rights protection system."*
 
 ---
 
 ## 🎉 **Ready to Protect Digital Dignity?**
 
-**DataDignity Vault** transforms the way women control their digital content. No more helplessness against revenge sharing. No more wondering if your private files are truly private. No more legal dead-ends when your trust is violated.
+**SecureVault** transforms the way women control their digital content. No more helplessness against revenge sharing. No more wondering if your private files are truly private. No more legal dead-ends when your trust is violated.
 
 ### **🚀 Start Today:**
 ```bash
